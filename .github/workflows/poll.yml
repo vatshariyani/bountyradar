@@ -1,0 +1,42 @@
+name: BountyRadar poll
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub may delay under load (~10–15 min real cadence).
+    - cron: "*/10 * * * *"
+  workflow_dispatch:        # manual "Run workflow" button
+    inputs:
+      seed:
+        description: "Seed baseline without notifying (first run)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: bountyradar-poll
+  cancel-in-progress: false   # let an in-flight poll finish
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r poller/requirements.txt
+
+      - name: Run poller
+        working-directory: poller
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # Optional platform tokens (Phase 3) — safe to leave unset:
+          H1_API_USERNAME: ${{ secrets.H1_API_USERNAME }}
+          H1_API_TOKEN: ${{ secrets.H1_API_TOKEN }}
+          # Flip on for the very first manual run to baseline silently:
+          SEED_MODE: ${{ inputs.seed && '1' || '' }}
+        run: python main.py
