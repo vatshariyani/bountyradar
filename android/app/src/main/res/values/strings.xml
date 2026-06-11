@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">BountyRadar</string>
+    <string name="default_channel_id">new_programs</string>
+    <string name="default_channel_name">New programs</string>
+</resources>

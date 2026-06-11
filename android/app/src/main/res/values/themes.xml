@@ -1,0 +1,4 @@
+<resources>
+    <!-- Compose draws the real UI; this base theme just needs Material3 + no action bar. -->
+    <style name="Theme.BountyRadar" parent="Theme.Material3.DayNight.NoActionBar" />
+</resources>

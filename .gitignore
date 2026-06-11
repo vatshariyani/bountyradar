@@ -1,0 +1,35 @@
+# Secrets — NEVER commit these
+*serviceAccount*.json
+firebase-service-account.json
+google-services.json
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Local poller state (when running outside Firestore)
+state/
+*.sqlite
+*.db
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+android/captures/
+.cxx/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
