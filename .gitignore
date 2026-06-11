@@ -29,6 +29,10 @@ android/.idea/
 android/captures/
 .cxx/
 
+# Local APK build helpers (machine-specific, hardcoded paths)
+build_local_apk.sh
+apk_build.log
+
 # OS / editor
 .DS_Store
 Thumbs.db
