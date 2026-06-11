@@ -61,4 +61,8 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
 
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Provides the Material3 XML theme (Theme.Material3.*) used by the app's
+    // host theme in res/values/themes.xml. Compose's material3 does NOT include it.
+    implementation("com.google.android.material:material:1.12.0")
 }
