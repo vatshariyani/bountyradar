@@ -41,12 +41,38 @@ class Program:
         raw = f"{_slug(self.platform)}::{_slug(self.handle)}"
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
 
+    @property
+    def content_hash(self) -> str:
+        """Fingerprint of the parts that matter for "did this program change":
+        name, link, reward, paid-status, scope and tags. A change here = an
+        update worth notifying about (e.g. new scope = new attack surface)."""
+        parts = [
+            self.name, self.url, str(self.bounty), self.reward_range,
+            "|".join(sorted(self.scope)), "|".join(sorted(self.tags)),
+        ]
+        return hashlib.sha1("::".join(parts).encode("utf-8")).hexdigest()[:16]
+
     def to_firestore(self) -> dict[str, Any]:
+        """Full document — used for NEW programs and seeding."""
         d = asdict(self)
         d["doc_id"] = self.doc_id
+        d["content_hash"] = self.content_hash
+        now = datetime.now(timezone.utc).isoformat()
         if not d["first_seen"]:
-            d["first_seen"] = datetime.now(timezone.utc).isoformat()
+            d["first_seen"] = now
+        d["updated_at"] = now
         return d
+
+    def to_firestore_update(self) -> dict[str, Any]:
+        """Partial update for an EXISTING program — never touches first_seen so
+        the program keeps its original discovery time, but bumps updated_at."""
+        return {
+            "name": self.name, "url": self.url, "bounty": self.bounty,
+            "reward_range": self.reward_range, "scope": self.scope,
+            "tags": self.tags, "source_meta": self.source_meta,
+            "content_hash": self.content_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     def notification_title(self) -> str:
         reward = " 💰" if self.bounty else ""
@@ -58,4 +84,13 @@ class Program:
             bits.append(self.reward_range)
         if self.scope:
             bits.append(f"{len(self.scope)} scope item(s)")
+        return " · ".join(bits)
+
+    def update_title(self) -> str:
+        return f"🔄 Updated: {self.name}"
+
+    def update_body(self) -> str:
+        bits = [self.platform.title(), "scope/reward changed"]
+        if self.scope:
+            bits.append(f"{len(self.scope)} scope item(s) now")
         return " · ".join(bits)

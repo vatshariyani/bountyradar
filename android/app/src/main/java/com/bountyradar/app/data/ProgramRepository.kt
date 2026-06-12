@@ -19,7 +19,7 @@ class ProgramRepository {
     fun observePrograms(): Flow<List<Program>> = callbackFlow {
         val registration = collection
             .orderBy("first_seen", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(200)
+            .limit(5000)   // show ALL programs; filter/sort happen client-side
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     // Permission-denied (rules) or network errors must NOT crash the

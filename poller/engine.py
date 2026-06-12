@@ -42,23 +42,50 @@ def run_once(store: Store | None = None) -> dict:
     current = collect_programs()
     log.info("collected %d unique programs", len(current))
 
-    known = store.known_ids()
-    new_ids = [doc_id for doc_id in current if doc_id not in known]
-    new_programs = [current[i] for i in new_ids]
-
     seeding = config.SEED_MODE or store.is_empty
     if seeding:
         # Establish baseline WITHOUT notifying (avoids first-run alert storm).
-        store.save(list(current.values()))
+        store.save_new(list(current.values()))
         log.info("SEED: baselined %d programs, no notifications sent", len(current))
-        return {"collected": len(current), "new": 0, "seeded": True}
+        return {"collected": len(current), "new": 0, "updated": 0, "seeded": True}
+
+    known = store.known_hashes()  # {doc_id: content_hash or None}
+    new_programs, updated_programs, backfill = [], [], []
+    for doc_id, p in current.items():
+        if doc_id not in known:
+            new_programs.append(p)
+        else:
+            old_hash = known[doc_id]
+            if old_hash is None:
+                backfill.append(p)          # legacy doc without a hash yet
+            elif old_hash != p.content_hash:
+                updated_programs.append(p)   # genuine change -> notify
+
+    if backfill:
+        # Silently stamp hashes on pre-hash documents so they don't all look
+        # "updated" on the first run after this feature ships.
+        store.backfill_hashes(backfill)
+        log.info("backfilled content_hash on %d legacy programs", len(backfill))
 
     if new_programs:
-        store.save(new_programs)
-        store.notify(new_programs)
+        store.save_new(new_programs)
+        store.notify_new(new_programs)
         for p in new_programs:
-            log.info("NEW  %-14s %s  %s", p.platform, p.name, p.url)
-    else:
-        log.info("no new programs this tick")
+            log.info("NEW     %-14s %s", p.platform, p.name)
 
-    return {"collected": len(current), "new": len(new_programs), "seeded": False}
+    if updated_programs:
+        store.save_updated(updated_programs)
+        store.notify_updated(updated_programs)
+        for p in updated_programs:
+            log.info("UPDATED %-14s %s", p.platform, p.name)
+
+    if not new_programs and not updated_programs:
+        log.info("no new or updated programs this tick")
+
+    return {
+        "collected": len(current),
+        "new": len(new_programs),
+        "updated": len(updated_programs),
+        "backfilled": len(backfill),
+        "seeded": False,
+    }

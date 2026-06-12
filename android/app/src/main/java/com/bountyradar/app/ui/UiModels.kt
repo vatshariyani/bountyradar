@@ -26,7 +26,7 @@ enum class RewardFilter(val label: String) {
 }
 
 enum class ThemeMode(val label: String) {
-    SYSTEM("Follow system"),
+    SYSTEM("System"),
     LIGHT("Light"),
     DARK("Dark"),
 }

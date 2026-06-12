@@ -5,6 +5,11 @@
 
 The engine picks LocalStore automatically when no Firebase credentials are
 present, so you can run the whole pipeline locally with zero setup.
+
+Each program stores a `content_hash` so we can tell three things apart:
+  NEW       — doc_id not seen before
+  UPDATED   — doc_id seen, but content_hash changed (scope/reward/etc.)
+  unchanged — same content_hash
 """
 from __future__ import annotations
 
@@ -13,7 +18,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Iterable
 
 import config
 from models import Program
@@ -22,18 +26,28 @@ log = logging.getLogger("bountyradar.store")
 
 
 class Store:
-    def known_ids(self) -> set[str]:
+    def known_hashes(self) -> dict[str, str | None]:
+        """{doc_id: stored content_hash (or None if the doc predates hashing)}."""
         raise NotImplementedError
 
-    def save(self, programs: list[Program]) -> None:
+    def save_new(self, programs: list[Program]) -> None:
         raise NotImplementedError
 
-    def notify(self, programs: list[Program]) -> None:
+    def save_updated(self, programs: list[Program]) -> None:
+        raise NotImplementedError
+
+    def backfill_hashes(self, programs: list[Program]) -> None:
+        raise NotImplementedError
+
+    def notify_new(self, programs: list[Program]) -> None:
+        raise NotImplementedError
+
+    def notify_updated(self, programs: list[Program]) -> None:
         raise NotImplementedError
 
     @property
     def is_empty(self) -> bool:
-        return len(self.known_ids()) == 0
+        return len(self.known_hashes()) == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -43,26 +57,41 @@ class LocalStore(Store):
     def __init__(self, path: str = "state/seen.json"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._data = self._load()
+        self._hashes: dict[str, str | None] = self._load()
 
     def _load(self) -> dict:
         if self.path.exists():
-            return json.loads(self.path.read_text(encoding="utf-8"))
-        return {"ids": []}
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            return data.get("hashes", {})
+        return {}
 
-    def known_ids(self) -> set[str]:
-        return set(self._data.get("ids", []))
+    def _flush(self) -> None:
+        self.path.write_text(json.dumps({"hashes": self._hashes}, indent=2), encoding="utf-8")
 
-    def save(self, programs: list[Program]) -> None:
-        ids = set(self._data.get("ids", []))
-        ids.update(p.doc_id for p in programs)
-        self._data["ids"] = sorted(ids)
-        self.path.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+    def known_hashes(self) -> dict[str, str | None]:
+        return dict(self._hashes)
 
-    def notify(self, programs: list[Program]) -> None:
+    def save_new(self, programs: list[Program]) -> None:
         for p in programs:
-            line = f"[PUSH] {p.notification_title()} — {p.notification_body()} — {p.url}"
-            # Windows consoles default to cp1252 and choke on emoji; degrade safely.
+            self._hashes[p.doc_id] = p.content_hash
+        self._flush()
+
+    def save_updated(self, programs: list[Program]) -> None:
+        self.save_new(programs)
+
+    def backfill_hashes(self, programs: list[Program]) -> None:
+        self.save_new(programs)
+
+    def notify_new(self, programs: list[Program]) -> None:
+        self._print(programs, "NEW")
+
+    def notify_updated(self, programs: list[Program]) -> None:
+        self._print(programs, "UPDATE")
+
+    def _print(self, programs: list[Program], kind: str) -> None:
+        for p in programs:
+            title = p.notification_title() if kind == "NEW" else p.update_title()
+            line = f"[{kind} PUSH] {title} — {p.url}"
             enc = sys.stdout.encoding or "utf-8"
             sys.stdout.write(line.encode(enc, errors="replace").decode(enc) + "\n")
 
@@ -75,19 +104,15 @@ class FirebaseStore(Store):
         import firebase_admin
         from firebase_admin import credentials, firestore, messaging
 
-        self._fs_module = firestore
         self._messaging = messaging
-
         cred = self._load_credentials(credentials)
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
         self.db = firestore.client()
         self.col = self.db.collection(config.PROGRAMS_COLLECTION)
-        self._known_cache: set[str] | None = None
 
     @staticmethod
     def _load_credentials(credentials):
-        # Prefer inline JSON (GitHub secret), else a file path.
         if config.FIREBASE_SERVICE_ACCOUNT_JSON:
             info = json.loads(config.FIREBASE_SERVICE_ACCOUNT_JSON)
             return credentials.Certificate(info)
@@ -98,27 +123,35 @@ class FirebaseStore(Store):
             "or GOOGLE_APPLICATION_CREDENTIALS (path)."
         )
 
-    def known_ids(self) -> set[str]:
-        if self._known_cache is None:
-            # We only need the IDs, so select() nothing -> doc.id is enough.
-            self._known_cache = {doc.id for doc in self.col.select([]).stream()}
-        return self._known_cache
+    def known_hashes(self) -> dict[str, str | None]:
+        out: dict[str, str | None] = {}
+        for doc in self.col.select(["content_hash"]).stream():
+            out[doc.id] = (doc.to_dict() or {}).get("content_hash")
+        return out
 
-    def save(self, programs: list[Program]) -> None:
+    def _batch_set(self, programs, to_dict) -> None:
         batch = self.db.batch()
-        count = 0
+        n = 0
         for p in programs:
-            ref = self.col.document(p.doc_id)
-            batch.set(ref, p.to_firestore(), merge=True)
-            self._known_cache and self._known_cache.add(p.doc_id)
-            count += 1
-            if count % 400 == 0:  # Firestore batch limit is 500
+            batch.set(self.col.document(p.doc_id), to_dict(p), merge=True)
+            n += 1
+            if n % 400 == 0:
                 batch.commit()
                 batch = self.db.batch()
-        if count % 400 != 0:
+        if n % 400 != 0:
             batch.commit()
 
-    def notify(self, programs: list[Program]) -> None:
+    def save_new(self, programs: list[Program]) -> None:
+        self._batch_set(programs, lambda p: p.to_firestore())
+
+    def save_updated(self, programs: list[Program]) -> None:
+        self._batch_set(programs, lambda p: p.to_firestore_update())
+
+    def backfill_hashes(self, programs: list[Program]) -> None:
+        # Only stamp the content_hash on legacy docs; don't bump updated_at.
+        self._batch_set(programs, lambda p: {"content_hash": p.content_hash})
+
+    def notify_new(self, programs: list[Program]) -> None:
         if not programs:
             return
         if len(programs) > config.MAX_INDIVIDUAL_NOTIFICATIONS:
@@ -130,14 +163,24 @@ class FirebaseStore(Store):
             return
         for p in programs:
             self._send(
-                title=p.notification_title(),
-                body=p.notification_body(),
-                data={
-                    "type": "program",
-                    "doc_id": p.doc_id,
-                    "platform": p.platform,
-                    "url": p.url,
-                },
+                title=p.notification_title(), body=p.notification_body(),
+                data={"type": "program", "doc_id": p.doc_id, "platform": p.platform, "url": p.url},
+            )
+
+    def notify_updated(self, programs: list[Program]) -> None:
+        if not programs:
+            return
+        if len(programs) > config.MAX_INDIVIDUAL_NOTIFICATIONS:
+            self._send(
+                title=f"🔄 {len(programs)} programs updated",
+                body="Scope or rewards changed — open BountyRadar to review.",
+                data={"type": "batch_update", "count": str(len(programs))},
+            )
+            return
+        for p in programs:
+            self._send(
+                title=p.update_title(), body=p.update_body(),
+                data={"type": "update", "doc_id": p.doc_id, "platform": p.platform, "url": p.url},
             )
 
     def _send(self, title: str, body: str, data: dict) -> None:

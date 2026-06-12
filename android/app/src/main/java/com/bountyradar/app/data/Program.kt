@@ -27,6 +27,8 @@ data class Program(
     var launchedAt: String = "",
     @get:PropertyName("first_seen") @set:PropertyName("first_seen")
     var firstSeen: String = "",
+    @get:PropertyName("updated_at") @set:PropertyName("updated_at")
+    var updatedAt: String = "",
 ) {
     /** Highest numeric value found in the reward string (for sorting). */
     fun maxReward(): Long =
@@ -42,6 +44,17 @@ data class Program(
     fun isNewWithin(window: Duration): Boolean {
         val seen = firstSeenInstant() ?: return false
         return Duration.between(seen, Instant.now()) <= window
+    }
+
+    private fun updatedAtInstant(): Instant? = runCatching {
+        OffsetDateTime.parse(updatedAt).toInstant()
+    }.getOrNull()
+
+    /** Old program that got a recent scope/reward change (not a brand-new one). */
+    fun isRecentlyUpdated(): Boolean {
+        val u = updatedAtInstant() ?: return false
+        val within = Duration.between(u, Instant.now()) <= Duration.ofDays(2)
+        return within && !isNewWithin(Duration.ofDays(2))
     }
 
     fun isWeb3(): Boolean = tags.any { it.equals("web3", true) } || platform in WEB3_PLATFORMS

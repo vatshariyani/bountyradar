@@ -115,6 +115,22 @@ fun NewBadge() {
 }
 
 @Composable
+fun UpdatedBadge() {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.9f),
+        shape = RoundedCornerShape(50),
+    ) {
+        Text(
+            "UPDATED",
+            Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            color = Color.White,
+            fontWeight = FontWeight.Black,
+            fontSize = 10.sp,
+        )
+    }
+}
+
+@Composable
 fun Pill(text: String, color: Color, filled: Boolean = false) {
     Surface(
         color = if (filled) color.copy(alpha = 0.18f) else Color.Transparent,
@@ -185,7 +201,7 @@ fun ProgramCard(
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    if (isNew) NewBadge()
+                    if (isNew) NewBadge() else if (program.isRecentlyUpdated()) UpdatedBadge()
                     Spacer(Modifier.width(6.dp))
                     Icon(
                         if (bookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
