@@ -1,0 +1,45 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bounty Radar — Chips &amp; buttons</title>
+<style>
+  body{margin:0;background:#0A0E13;color:#E6EDF3;padding:28px;font-family:'Inter',system-ui,Segoe UI,Roboto,sans-serif}
+  h1{font-size:18px;font-weight:800;margin:0 0 4px}
+  h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9FB0C0;margin:22px 0 10px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .chip{font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid #2C3946;color:#C3CEDA;background:#11161E;display:inline-flex;gap:6px;align-items:center}
+  .chip.sel{background:rgba(31,224,160,.18);border-color:rgba(31,224,160,.5);color:#1FE0A0}
+  .chip.h1{background:rgba(63,169,245,.18);border-color:rgba(63,169,245,.5);color:#3FA9F5}
+  .check{font-weight:900}
+  .btn{font-size:15px;font-weight:800;padding:14px 22px;border-radius:14px;border:0;cursor:pointer}
+  .primary{background:#1FE0A0;color:#05130D}
+  .gradient{background:linear-gradient(135deg,#1FE0A0,#35D0FF);color:#05130D}
+  .outline{background:transparent;border:1px solid #2C3946;color:#E6EDF3}
+  .seg{display:inline-flex;border:1px solid #2C3946;border-radius:12px;overflow:hidden}
+  .seg div{padding:10px 20px;font-size:13px;font-weight:600;color:#9FB0C0}
+  .seg div.on{background:#1FE0A0;color:#05130D}
+</style></head>
+<body>
+  <h1>Chips &amp; buttons</h1>
+
+  <h2>Filter chips (selectable)</h2>
+  <div class="row">
+    <span class="chip sel"><span class="check">&#10003;</span> New today</span>
+    <span class="chip">Paid bounty</span>
+    <span class="chip h1"><span class="check">&#10003;</span> HackerOne</span>
+    <span class="chip">Immunefi</span>
+    <span class="chip">Web3 only</span>
+  </div>
+
+  <h2>Segmented control (theme)</h2>
+  <div class="seg"><div class="on">System</div><div>Light</div><div>Dark</div></div>
+
+  <h2>Buttons</h2>
+  <div class="row">
+    <button class="btn primary">Show results</button>
+    <button class="btn gradient">Open program &amp; start hunting</button>
+    <button class="btn outline">Sign out</button>
+  </div>
+</body>
+</html>

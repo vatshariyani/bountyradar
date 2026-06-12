@@ -1,0 +1,37 @@
+<!-- @dsCard group="Patterns" -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bounty Radar — Feed hero</title>
+<style>
+  body{margin:0;background:#0A0E13;color:#E6EDF3;padding:24px;font-family:'Inter',system-ui,Segoe UI,Roboto,sans-serif}
+  .hero{max-width:440px;border-radius:24px;padding:20px;background:linear-gradient(135deg,rgba(31,224,160,.22),rgba(139,123,255,.18));border:1px solid #2C3946}
+  .title{font-weight:900;font-size:26px;margin:0}
+  .sub{color:#9FB0C0;font-size:13px;margin:2px 0 16px}
+  .stats{display:flex;gap:10px}
+  .tile{flex:1;background:rgba(28,37,48,.6);border-radius:16px;padding:12px}
+  .tile.hot{background:rgba(31,224,160,.18)}
+  .val{font-weight:900;font-size:22px}
+  .hot .val{color:#1FE0A0}
+  .lab{color:#9FB0C0;font-size:11px}
+  .search{display:flex;gap:10px;max-width:440px;margin-top:14px}
+  .field{flex:1;background:#11161E;border:1px solid #2C3946;border-radius:16px;padding:14px 16px;color:#9FB0C0;font-size:14px}
+  .fab{width:56px;height:56px;border-radius:16px;background:rgba(31,224,160,.18);border:1px solid rgba(31,224,160,.4);display:grid;place-items:center;color:#1FE0A0;font-size:22px;position:relative}
+  .dot{position:absolute;top:-4px;right:-4px;background:#FF6B6B;color:#fff;font-size:10px;font-weight:800;border-radius:999px;padding:1px 6px}
+</style></head>
+<body>
+  <div class="hero">
+    <p class="title">BountyRadar</p>
+    <p class="sub">Catch new targets first.</p>
+    <div class="stats">
+      <div class="tile"><div class="val">1,181</div><div class="lab">programs</div></div>
+      <div class="tile hot"><div class="val">7</div><div class="lab">new today</div></div>
+      <div class="tile"><div class="val">42</div><div class="lab">shown</div></div>
+    </div>
+  </div>
+  <div class="search">
+    <div class="field">&#128269;&nbsp; Search programs, scope, tags…</div>
+    <div class="fab">&#9776;<span class="dot">2</span></div>
+  </div>
+</body>
+</html>

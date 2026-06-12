@@ -1,0 +1,61 @@
+<!-- @dsCard group="Foundations" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bounty Radar — Color</title>
+<style>
+  :root{
+    --green:#1FE0A0; --green-d:#0FB983; --cyan:#35D0FF; --violet:#8B7BFF; --amber:#FFC24B; --error:#FF6B6B;
+    --bg:#0A0E13; --surface:#11161E; --surface-2:#1C2530; --on:#E6EDF3; --on-muted:#9FB0C0; --outline:#2C3946;
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  body{margin:0;background:var(--bg);color:var(--on);padding:28px}
+  h1{font-size:22px;font-weight:800;margin:0 0 4px}
+  p.sub{color:var(--on-muted);margin:0 0 22px;font-size:13px}
+  h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-muted);margin:22px 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .sw{border-radius:16px;padding:14px;border:1px solid var(--outline);background:var(--surface)}
+  .chip{height:44px;border-radius:12px;margin-bottom:10px}
+  .name{font-weight:700;font-size:13px}
+  .hex{color:var(--on-muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .platforms{display:flex;flex-wrap:wrap;gap:10px}
+  .pf{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--outline);padding:8px 12px;border-radius:999px;font-size:13px}
+  .dot{width:16px;height:16px;border-radius:6px}
+</style>
+</head>
+<body>
+  <h1>Color</h1>
+  <p class="sub">Cyber-neon palette. Dark is the primary surface; a matched light theme ships alongside.</p>
+
+  <h2>Brand</h2>
+  <div class="grid">
+    <div class="sw"><div class="chip" style="background:linear-gradient(135deg,#1FE0A0,#0FB983)"></div><div class="name">Primary / Neon</div><div class="hex">#1FE0A0</div></div>
+    <div class="sw"><div class="chip" style="background:#35D0FF"></div><div class="name">Secondary / Cyan</div><div class="hex">#35D0FF</div></div>
+    <div class="sw"><div class="chip" style="background:#8B7BFF"></div><div class="name">Tertiary / Violet</div><div class="hex">#8B7BFF</div></div>
+    <div class="sw"><div class="chip" style="background:#FFC24B"></div><div class="name">Accent / Amber</div><div class="hex">#FFC24B</div></div>
+    <div class="sw"><div class="chip" style="background:#FF6B6B"></div><div class="name">Error</div><div class="hex">#FF6B6B</div></div>
+  </div>
+
+  <h2>Dark surfaces</h2>
+  <div class="grid">
+    <div class="sw"><div class="chip" style="background:#0A0E13;border:1px solid #2C3946"></div><div class="name">Background</div><div class="hex">#0A0E13</div></div>
+    <div class="sw"><div class="chip" style="background:#11161E;border:1px solid #2C3946"></div><div class="name">Surface</div><div class="hex">#11161E</div></div>
+    <div class="sw"><div class="chip" style="background:#1C2530"></div><div class="name">Surface variant</div><div class="hex">#1C2530</div></div>
+    <div class="sw"><div class="chip" style="background:#E6EDF3"></div><div class="name">On surface</div><div class="hex">#E6EDF3</div></div>
+  </div>
+
+  <h2>Platform accents</h2>
+  <div class="platforms">
+    <span class="pf"><span class="dot" style="background:#3FA9F5"></span>HackerOne</span>
+    <span class="pf"><span class="dot" style="background:#FF7A59"></span>Bugcrowd</span>
+    <span class="pf"><span class="dot" style="background:#6C5CE7"></span>Intigriti</span>
+    <span class="pf"><span class="dot" style="background:#18C29C"></span>YesWeHack</span>
+    <span class="pf"><span class="dot" style="background:#B388FF"></span>Immunefi</span>
+    <span class="pf"><span class="dot" style="background:#FF5DA2"></span>Sherlock</span>
+    <span class="pf"><span class="dot" style="background:#FFC24B"></span>Cantina</span>
+    <span class="pf"><span class="dot" style="background:#4DD0E1"></span>Federacy</span>
+  </div>
+</body>
+</html>
