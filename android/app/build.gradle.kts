@@ -65,4 +65,10 @@ dependencies {
     // Provides the Material3 XML theme (Theme.Material3.*) used by the app's
     // host theme in res/values/themes.xml. Compose's material3 does NOT include it.
     implementation("com.google.android.material:material:1.12.0")
+
+    // Persist theme choice + bookmarks across launches.
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // System bars / edge-to-edge insets helpers.
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

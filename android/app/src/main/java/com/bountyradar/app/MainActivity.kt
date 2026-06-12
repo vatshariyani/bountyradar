@@ -11,33 +11,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bountyradar.app.ui.LoginScreen
-import com.bountyradar.app.ui.ProgramListScreen
+import com.bountyradar.app.ui.RadarApp
 import com.bountyradar.app.ui.RadarViewModel
+import com.bountyradar.app.ui.theme.BountyRadarTheme
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
-            MaterialTheme {
-                Surface {
-                    val vm: RadarViewModel = viewModel()
+            val vm: RadarViewModel = viewModel()
+            val themeMode by vm.themeMode.collectAsStateWithLifecycle()
+
+            BountyRadarTheme(themeMode) {
+                Surface(color = MaterialTheme.colorScheme.background) {
                     val auth by vm.authState.collectAsStateWithLifecycle()
 
-                    // Ask for notification permission once we have a signed-in user.
                     val permLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()
-                    ) { /* result ignored; list still works without it */ }
+                    ) { /* ignored; in-app list still works */ }
                     LaunchedEffect(auth.signedIn) {
                         if (auth.signedIn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
                     }
 
-                    if (auth.signedIn) ProgramListScreen(vm) else LoginScreen(vm)
+                    if (auth.signedIn) RadarApp(vm) else LoginScreen(vm)
                 }
             }
         }
