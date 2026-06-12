@@ -22,10 +22,19 @@ class ProgramRepository {
             .limit(200)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    // Permission-denied (rules) or network errors must NOT crash the
+                    // app — log and surface an empty list so the UI stays alive.
+                    android.util.Log.w("BountyRadar", "Firestore listen failed", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
-                if (snapshot != null) trySend(snapshot.toObjects<Program>())
+                val items = try {
+                    snapshot?.toObjects<Program>() ?: emptyList()
+                } catch (e: Exception) {
+                    android.util.Log.w("BountyRadar", "Firestore deserialize failed", e)
+                    emptyList()
+                }
+                trySend(items)
             }
         awaitClose { registration.remove() }
     }

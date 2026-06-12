@@ -1,5 +1,6 @@
 package com.bountyradar.app.data
 
+import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.PropertyName
 
 /**
@@ -7,7 +8,9 @@ import com.google.firebase.firestore.PropertyName
  * Field names use @PropertyName because Firestore stores snake_case.
  */
 data class Program(
-    val docId: String = "",
+    // @DocumentId injects the Firestore document id (our unique doc_id hash).
+    // Without this, docId is blank for every row and the LazyColumn key collides.
+    @DocumentId val docId: String = "",
     val platform: String = "",
     val name: String = "",
     val url: String = "",
