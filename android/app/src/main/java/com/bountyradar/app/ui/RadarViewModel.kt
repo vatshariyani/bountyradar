@@ -193,6 +193,12 @@ class RadarViewModel(app: Application) : AndroidViewModel(app) {
     fun programById(docId: String): ProgramItem? =
         allPrograms.value.firstOrNull { it.docId == docId }
 
+    /** Live view of one program, so an open detail screen survives a cold feed. */
+    fun programFlow(docId: String): Flow<ProgramItem?> =
+        allPrograms.map { list -> list.firstOrNull { it.docId == docId } }
+
+    fun newsById(id: String): NewsItem? = allNews.value.firstOrNull { it.id == id }
+
     // ---- Connected platform accounts (tokens stay encrypted on this device) ----
     private val _hackerOne = MutableStateFlow(AccountUi<HackerOneData>())
     val hackerOne: StateFlow<AccountUi<HackerOneData>> = _hackerOne

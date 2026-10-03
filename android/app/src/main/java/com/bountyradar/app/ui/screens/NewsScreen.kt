@@ -1,7 +1,5 @@
 package com.bountyradar.app.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,10 +24,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,28 +41,41 @@ import com.bountyradar.app.ui.components.Tag
 import com.bountyradar.app.ui.components.pressScale
 import com.bountyradar.app.ui.theme.Radar
 
-private val KINDS = listOf(
+internal val NEWS_KINDS = listOf(
     "all" to "All",
+    "zeroday" to "0-day & pre-CVE",
     "exploited" to "Exploited",
+    "cve" to "New CVEs",
+    "disclosure" to "Disclosed reports",
+    "exploit" to "Exploits",
     "advisory" to "Advisories",
     "research" to "Research",
     "writeup" to "Write-ups",
     "news" to "News",
 )
 
+internal fun newsTagLabel(item: NewsItem): String {
+    val sev = item.severity.replaceFirstChar { it.uppercase() }
+    return when {
+        item.kind == "exploited" -> "Exploited"
+        item.kind == "zeroday" -> if (sev.isBlank()) "Pre-CVE" else "Pre-CVE · $sev"
+        sev.isNotBlank() -> sev
+        else -> NEWS_KINDS.firstOrNull { it.first == item.kind }?.second ?: "News"
+    }
+}
+
+internal fun newsTagColor(item: NewsItem): Color = when {
+    item.kind == "exploited" || item.kind == "zeroday" || item.severity == "critical" -> Radar.Danger
+    item.severity == "high" -> Radar.Warn
+    else -> Radar.Muted
+}
+
 @Composable
-fun NewsScreen(vm: RadarViewModel) {
+fun NewsScreen(vm: RadarViewModel, onOpen: (String) -> Unit) {
     val items by vm.news.collectAsStateWithLifecycle()
     val kind by vm.newsKind.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val open = remember(context) {
-        { url: String ->
-            if (url.isNotBlank()) {
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-            }
-            Unit
-        }
-    }
+    val openState = rememberUpdatedState(onOpen)
+    val open = remember { { id: String -> openState.value(id) } }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -85,7 +97,7 @@ fun NewsScreen(vm: RadarViewModel) {
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Radar.ScreenPadding, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                KINDS.forEach { (key, label) -> RadarChip(label, kind == key) { vm.newsKind.value = key } }
+                NEWS_KINDS.forEach { (key, label) -> RadarChip(label, kind == key) { vm.newsKind.value = key } }
             }
         }
         if (items.isEmpty()) {
@@ -102,7 +114,6 @@ private fun NewsCard(item: NewsItem, onOpen: (String) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val bg by animateColorAsState(if (pressed) Radar.SurfaceHi else Radar.Surface, label = "newsBg")
-    val severe = item.kind == "exploited" || item.severity == "critical"
 
     Column(
         Modifier
@@ -112,22 +123,11 @@ private fun NewsCard(item: NewsItem, onOpen: (String) -> Unit) {
             .clip(Radar.CardShape)
             .background(bg)
             .border(1.dp, Radar.Line, Radar.CardShape)
-            .clickable(interaction, indication = null, role = Role.Button) { onOpen(item.url) }
+            .clickable(interaction, indication = null, role = Role.Button) { onOpen(item.id) }
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Tag(
-                when {
-                    item.kind == "exploited" -> "Exploited"
-                    item.severity.isNotBlank() -> item.severity.replaceFirstChar { it.uppercase() }
-                    else -> KINDS.firstOrNull { it.first == item.kind }?.second ?: "News"
-                },
-                color = when {
-                    severe -> Radar.Danger
-                    item.severity == "high" -> Radar.Warn
-                    else -> Radar.Muted
-                },
-            )
+            Tag(newsTagLabel(item), color = newsTagColor(item))
             Spacer(Modifier.weight(1f))
             Text(
                 listOf(item.source, item.date.take(10)).filter { it.isNotBlank() }.joinToString(" · "),

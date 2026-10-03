@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bountyradar.app.data.ProgramItem
 import com.bountyradar.app.ui.RadarViewModel
 import com.bountyradar.app.ui.components.BookmarkButton
 import com.bountyradar.app.ui.components.EmptyState
@@ -58,143 +60,168 @@ import com.bountyradar.app.ui.theme.platformName
 
 @Composable
 fun ProgramDetailScreen(vm: RadarViewModel, docId: String, onBack: () -> Unit) {
-    val item = remember(docId) { vm.programById(docId) }
+    val itemFlow = remember(docId) { vm.programFlow(docId) }
+    val item by itemFlow.collectAsStateWithLifecycle(vm.programById(docId))
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val noteFlow = remember(docId) { vm.note(docId) }
+    val note by noteFlow.collectAsStateWithLifecycle("")
 
+    ProgramDetailContent(
+        item = item,
+        bookmarked = docId in bookmarks,
+        note = note,
+        onToggleBookmark = { vm.toggleBookmark(docId) },
+        onSaveNote = { vm.saveNote(docId, it) },
+        onBack = onBack,
+    )
+}
+
+/** Stateless so it can be rendered in JVM screenshot tests. */
+@Composable
+internal fun ProgramDetailContent(
+    item: ProgramItem?,
+    bookmarked: Boolean,
+    note: String,
+    onToggleBookmark: () -> Unit,
+    onSaveNote: (String) -> Unit,
+    onBack: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().imePadding()) {
         ScreenTopBar(
             title = "Program",
             onBack = onBack,
             action = if (item != null) {
-                { BookmarkButton(item.docId in bookmarks) { vm.toggleBookmark(item.docId) } }
+                { BookmarkButton(bookmarked, onToggleBookmark) }
             } else null,
         )
-
         if (item == null) {
             EmptyState("Program not found", "It may have been removed from its platform.")
-            return@Column
+        } else {
+            ProgramBody(item, note, onSaveNote)
         }
-        val program = item.program
+    }
+}
 
-        LazyColumn(
-            Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(Radar.ScreenPadding, 8.dp, Radar.ScreenPadding, 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item(key = "hero") {
-                Column(Modifier.padding(bottom = 10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        PlatformAvatar(item.platformKey, 56)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                platformName(item.platformKey),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = platformColor(item.platformKey),
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (item.isNew) Tag("New", filled = true) else if (item.isUpdated) Tag("Updated")
-                                if (item.isWeb3) Tag("Web3", Radar.Muted)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(program.name, style = MaterialTheme.typography.headlineLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-            }
+@Composable
+private fun ColumnScope.ProgramBody(item: ProgramItem, note: String, onSaveNote: (String) -> Unit) {
+    val context = LocalContext.current
+    val program = item.program
 
-            item(key = "metrics") {
-                Panel {
-                    Text(
-                        item.rewardLabel,
-                        fontFamily = GeistMono, fontSize = 20.sp,
-                        color = if (program.bounty) Radar.Accent else Radar.Muted,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text("Reward", style = MaterialTheme.typography.labelSmall, color = Radar.Muted)
-                    Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Metric("%,d".format(item.scopeCount), "Assets in scope", Modifier.weight(1f))
-                        Metric("%,d".format(item.wildcardCount), "Wildcards", Modifier.weight(1f))
-                    }
-                    if (program.firstSeen.length >= 10) {
-                        Spacer(Modifier.height(14.dp))
+    LazyColumn(
+        Modifier.weight(1f).fillMaxWidth(),
+        contentPadding = PaddingValues(Radar.ScreenPadding, 8.dp, Radar.ScreenPadding, 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "hero") {
+            Column(Modifier.padding(bottom = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PlatformAvatar(item.platformKey, 56)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            "First seen ${program.firstSeen.take(10)}",
-                            style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
+                            platformName(item.platformKey),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = platformColor(item.platformKey),
                         )
-                    }
-                }
-            }
-
-            item(key = "notes") {
-                val noteFlow = remember(program.docId) { vm.note(program.docId) }
-                val saved by noteFlow.collectAsStateWithLifecycle("")
-                var draft by remember(saved) { mutableStateOf(saved) }
-                Column(Modifier.padding(top = 14.dp)) {
-                    SectionLabel("My notes")
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = draft, onValueChange = { draft = it },
-                        placeholder = { Text("Recon ideas, what you tested, leads to revisit") },
-                        modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 8,
-                        shape = Radar.InnerShape, colors = radarFieldColors(),
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                    )
-                    if (draft != saved) {
-                        Spacer(Modifier.height(8.dp))
-                        SecondaryButton("Save note", { vm.saveNote(program.docId, draft) }, color = Radar.Accent)
-                    }
-                }
-            }
-
-            item(key = "scopeTitle") {
-                SectionLabel("In scope", Modifier.padding(top = 14.dp, bottom = 2.dp))
-            }
-            if (program.scope.isEmpty()) {
-                item(key = "noScope") {
-                    Text(
-                        "This source does not list scope. Open the program for the full rules.",
-                        style = MaterialTheme.typography.bodyMedium, color = Radar.Muted,
-                    )
-                }
-            } else {
-                // Scope entries can repeat, so key by position.
-                itemsIndexed(program.scope, key = { i, _ -> "s$i" }, contentType = { _, _ -> "scope" }) { _, asset ->
-                    SelectionContainer {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(Radar.InnerShape)
-                                .background(Radar.Surface)
-                                .border(1.dp, Radar.Line, Radar.InnerShape)
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
-                        ) {
-                            Text(asset, fontFamily = GeistMono, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (item.isNew) Tag("New", filled = true) else if (item.isUpdated) Tag("Updated")
+                            if (item.isWeb3) Tag("Web3", Radar.Muted)
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
+                Text(program.name, style = MaterialTheme.typography.headlineLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
 
-        // Primary action stays within thumb reach, pinned under the list (not over it).
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .background(Radar.Bg)
-                .drawBehind { drawLine(Radar.Line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
-                .padding(horizontal = Radar.ScreenPadding, vertical = 12.dp)
-        ) {
-            PrimaryButton(
-                "Open program",
-                arrow = true,
-                enabled = program.url.isNotBlank(),
-                onClick = {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(program.url))) }
-                },
-            )
+        item(key = "metrics") {
+            Panel {
+                Text(
+                    item.rewardLabel,
+                    fontFamily = GeistMono, fontSize = 20.sp,
+                    color = if (program.bounty) Radar.Accent else Radar.Muted,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Text("Reward", style = MaterialTheme.typography.labelSmall, color = Radar.Muted)
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Metric("%,d".format(item.scopeCount), "Assets in scope", Modifier.weight(1f))
+                    Metric("%,d".format(item.wildcardCount), "Wildcards", Modifier.weight(1f))
+                }
+                if (program.firstSeen.length >= 10) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "First seen ${program.firstSeen.take(10)}",
+                        style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
+                    )
+                }
+            }
         }
+
+        item(key = "notes") {
+            var draft by remember(note) { mutableStateOf(note) }
+            Column(Modifier.padding(top = 14.dp)) {
+                SectionLabel("My notes")
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = draft, onValueChange = { draft = it },
+                    placeholder = { Text("Recon ideas, what you tested, leads to revisit") },
+                    modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 8,
+                    shape = Radar.InnerShape, colors = radarFieldColors(),
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                )
+                if (draft != note) {
+                    Spacer(Modifier.height(8.dp))
+                    SecondaryButton("Save note", { onSaveNote(draft) }, color = Radar.Accent)
+                }
+            }
+        }
+
+        item(key = "scopeTitle") {
+            SectionLabel("In scope", Modifier.padding(top = 14.dp, bottom = 2.dp))
+        }
+        if (program.scope.isEmpty()) {
+            item(key = "noScope") {
+                Text(
+                    "This source does not list scope. Open the program for the full rules.",
+                    style = MaterialTheme.typography.bodyMedium, color = Radar.Muted,
+                )
+            }
+        } else {
+            // Scope entries can repeat, so key by position.
+            itemsIndexed(program.scope, key = { i, _ -> "s$i" }, contentType = { _, _ -> "scope" }) { _, asset ->
+                SelectionContainer {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(Radar.InnerShape)
+                            .background(Radar.Surface)
+                            .border(1.dp, Radar.Line, Radar.InnerShape)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Text(asset, fontFamily = GeistMono, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
+        }
+    }
+
+    // Primary action stays within thumb reach, pinned under the list (not over it).
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .background(Radar.Bg)
+            .drawBehind { drawLine(Radar.Line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+            .padding(horizontal = Radar.ScreenPadding, vertical = 12.dp)
+    ) {
+        PrimaryButton(
+            "Open program",
+            arrow = true,
+            enabled = program.url.isNotBlank(),
+            onClick = {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(program.url))) }
+            },
+        )
     }
 }

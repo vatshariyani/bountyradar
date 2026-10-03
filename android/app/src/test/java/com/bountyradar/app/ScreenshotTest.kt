@@ -27,15 +27,31 @@ import com.bountyradar.app.ui.components.ProgramCard
 import com.bountyradar.app.ui.components.RadarChip
 import com.bountyradar.app.ui.components.RadarLogo
 import com.bountyradar.app.ui.components.ScreenTopBar
+import com.bountyradar.app.ui.components.SearchField
 import com.bountyradar.app.ui.components.SecondaryButton
 import com.bountyradar.app.ui.components.SkeletonCard
 import com.bountyradar.app.ui.components.Tag
 import com.bountyradar.app.ui.screens.FeedHeader
 import com.bountyradar.app.ui.screens.FilterButton
+import com.bountyradar.app.ui.screens.NewsDetailContent
+import com.bountyradar.app.ui.screens.ProgramDetailContent
 import com.bountyradar.app.ui.theme.BountyRadarTheme
 import com.bountyradar.app.ui.theme.Radar
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.ui.unit.IntOffset
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.bountyradar.app.data.NewsItem
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -99,13 +115,19 @@ class ScreenshotTest {
                     FeedHeader(newSinceVisit = 12, total = 1801, platforms = 11)
                     Row(
                         Modifier.padding(horizontal = Radar.ScreenPadding),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        SearchField("", {}, "Search programs or scope", Modifier.weight(1f))
+                        Spacer(Modifier.width(10.dp))
+                        FilterButton(2) {}
+                    }
+                    Row(
+                        Modifier.padding(horizontal = Radar.ScreenPadding),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         RadarChip("New today", true) {}
                         RadarChip("Paid", false) {}
                         RadarChip("Wildcards", false) {}
-                        Spacer(Modifier.width(2.dp))
-                        FilterButton(2) {}
                     }
                     samples.forEachIndexed { i, item ->
                         ProgramCard(item, bookmarked = i == 0, onClick = {}, onBookmark = {},
@@ -154,5 +176,70 @@ class ScreenshotTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun detail() = shoot("detail") {
+        Screen {
+            ProgramDetailContent(
+                item = samples[0], bookmarked = true, note = "Check the OAuth flow",
+                onToggleBookmark = {}, onSaveNote = {}, onBack = {},
+            )
+        }
+    }
+
+    @Test
+    fun article() = shoot("article") {
+        Screen {
+            NewsDetailContent(
+                NewsItem(
+                    id = "a1", kind = "zeroday", source = "ZDI upcoming",
+                    title = "ZDI-CAN-34578: LiteLLM", url = "https://example.com", date = "2026-10-02",
+                    severity = "high",
+                    summary = "A CVSS 8.8 vulnerability was reported to the vendor on 2026-10-02 and has no public advisory or CVE yet. " +
+                        "Vendors get 120 days before details are published.",
+                    tags = listOf("LiteLLM", "CVSS 8.8", "AV:N/AC:L/PR:L"),
+                ),
+                onBack = {},
+            )
+        }
+    }
+
+    /** Tap a card inside a NavHost wired like the app's, and land on the detail screen. */
+    @Test
+    fun tapOpensDetail() {
+        rule.mainClock.autoAdvance = false
+        rule.setContent {
+            Screen {
+                val nav = rememberNavController()
+                val push = tween<IntOffset>(280, easing = FastOutSlowInEasing)
+                NavHost(
+                    nav, "feed",
+                    enterTransition = { fadeIn(tween(200, easing = FastOutSlowInEasing)) },
+                    exitTransition = { fadeOut(tween(120)) },
+                    popEnterTransition = { fadeIn(tween(200, easing = FastOutSlowInEasing)) },
+                    popExitTransition = { fadeOut(tween(120)) },
+                ) {
+                    composable("feed") {
+                        ProgramCard(samples[0], false, onClick = { nav.navigate("detail/$it") }, onBookmark = {})
+                    }
+                    composable(
+                        "detail/{docId}",
+                        enterTransition = { slideInHorizontally(push) { it / 5 } + fadeIn(tween(220)) },
+                        popExitTransition = { slideOutHorizontally(push) { it / 5 } + fadeOut(tween(160)) },
+                    ) { entry ->
+                        val id = entry.arguments?.getString("docId").orEmpty()
+                        ProgramDetailContent(
+                            samples.firstOrNull { it.docId == id }, false, "", {}, {}, { nav.popBackStack() },
+                        )
+                    }
+                }
+            }
+        }
+        rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("Slack").performClick()
+        rule.mainClock.advanceTimeBy(1500)
+        rule.onNodeWithText("Open program").assertExists()
+        rule.onRoot().captureRoboImage("build/outputs/roborazzi/tap_detail.png")
     }
 }

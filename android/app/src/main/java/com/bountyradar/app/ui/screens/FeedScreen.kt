@@ -24,13 +24,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,8 +52,8 @@ import com.bountyradar.app.ui.components.FilterSortSheet
 import com.bountyradar.app.ui.components.ProgramCard
 import com.bountyradar.app.ui.components.RadarChip
 import com.bountyradar.app.ui.components.RadarLogo
+import com.bountyradar.app.ui.components.SearchField
 import com.bountyradar.app.ui.components.SkeletonCard
-import com.bountyradar.app.ui.components.radarFieldColors
 import com.bountyradar.app.ui.theme.GeistMono
 import com.bountyradar.app.ui.theme.Radar
 
@@ -93,23 +90,10 @@ fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
                 Modifier.padding(horizontal = Radar.ScreenPadding),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedTextField(
+                SearchField(
                     value = query,
                     onValueChange = { vm.query.value = it },
-                    placeholder = { Text("Search programs or scope") },
-                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                    trailingIcon = if (query.isNotEmpty()) {
-                        {
-                            Icon(
-                                Icons.Outlined.Close, "Clear search", tint = Radar.Muted,
-                                modifier = Modifier.clip(CircleShape).clickable { vm.query.value = "" }.padding(8.dp),
-                            )
-                        }
-                    } else null,
-                    singleLine = true,
-                    shape = Radar.PillShape,
-                    colors = radarFieldColors(),
-                    textStyle = MaterialTheme.typography.bodyMedium,
+                    placeholder = "Search programs or scope",
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(10.dp))
@@ -227,7 +211,7 @@ internal fun FeedHeader(newSinceVisit: Int, total: Int, platforms: Int) {
 
 @Composable
 internal fun FilterButton(activeCount: Int, onClick: () -> Unit) {
-    Box(Modifier.size(56.dp)) {
+    Box(Modifier.size(46.dp)) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -239,15 +223,15 @@ internal fun FilterButton(activeCount: Int, onClick: () -> Unit) {
         ) {
             Icon(
                 Icons.Outlined.Tune, "Filter and sort",
-                tint = if (activeCount > 0) Radar.Accent else Radar.Text, modifier = Modifier.size(22.dp),
+                tint = if (activeCount > 0) Radar.Accent else Radar.Text, modifier = Modifier.size(20.dp),
             )
         }
         if (activeCount > 0) {
             Box(
-                Modifier.align(Alignment.TopEnd).size(20.dp).clip(CircleShape).background(Radar.Accent),
+                Modifier.align(Alignment.TopEnd).size(18.dp).clip(CircleShape).background(Radar.Accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("$activeCount", color = Radar.OnAccent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("$activeCount", color = Radar.OnAccent, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

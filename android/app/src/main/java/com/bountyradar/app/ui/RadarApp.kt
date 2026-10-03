@@ -56,6 +56,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bountyradar.app.ui.screens.AccountsScreen
 import com.bountyradar.app.ui.screens.FeedScreen
+import com.bountyradar.app.ui.screens.NewsDetailScreen
 import com.bountyradar.app.ui.screens.NewsScreen
 import com.bountyradar.app.ui.screens.PlatformsScreen
 import com.bountyradar.app.ui.screens.ProgramDetailScreen
@@ -129,7 +130,7 @@ fun RadarApp(vm: RadarViewModel) {
                     goTab("feed")
                 }
             }
-            composable("news") { NewsScreen(vm) }
+            composable("news") { NewsScreen(vm) { id -> nav.navigate("article/$id") } }
             composable("saved") {
                 SavedScreen(vm, onOpenProgram = { docId -> nav.navigate("detail/$docId") }, onBrowse = { goTab("feed") })
             }
@@ -142,6 +143,13 @@ fun RadarApp(vm: RadarViewModel) {
                 enterTransition = { slideInHorizontally(push) { it / 5 } + fadeIn(tween(220)) },
                 popExitTransition = { slideOutHorizontally(push) { it / 5 } + fadeOut(tween(160)) },
             ) { AccountsScreen(vm) { nav.popBackStack() } }
+            composable(
+                "article/{id}",
+                enterTransition = { slideInHorizontally(push) { it / 5 } + fadeIn(tween(220)) },
+                popExitTransition = { slideOutHorizontally(push) { it / 5 } + fadeOut(tween(160)) },
+            ) { entry ->
+                NewsDetailScreen(vm, entry.arguments?.getString("id").orEmpty()) { nav.popBackStack() }
+            }
             composable(
                 "detail/{docId}",
                 enterTransition = { slideInHorizontally(push) { it / 5 } + fadeIn(tween(220)) },

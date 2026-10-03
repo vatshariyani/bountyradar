@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,11 +29,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -57,6 +63,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -321,6 +328,60 @@ fun radarFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedLeadingIconColor = Radar.Muted,
     unfocusedLeadingIconColor = Radar.Muted,
 )
+
+/** Compact search pill: 46dp tall, so it lines up with the chips below it. */
+@Composable
+fun SearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val line by animateColorAsState(if (focused) Radar.Accent else Radar.Line, label = "searchLine")
+    val style = MaterialTheme.typography.bodyMedium.copy(color = Radar.Text, fontSize = 14.sp)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.height(46.dp),
+        singleLine = true,
+        textStyle = style,
+        cursorBrush = SolidColor(Radar.Accent),
+        interactionSource = interaction,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        decorationBox = { inner ->
+            Row(
+                Modifier
+                    .fillMaxSize()
+                    .clip(Radar.PillShape)
+                    .background(Radar.Surface)
+                    .border(1.dp, line, Radar.PillShape)
+                    .padding(start = 14.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Search, null, tint = Radar.Muted, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) {
+                        Text(placeholder, style = style, color = Radar.Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    inner()
+                }
+                if (value.isNotEmpty()) {
+                    Box(
+                        Modifier.size(38.dp).clip(CircleShape).clickable(role = Role.Button) { onValueChange("") },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, "Clear search", tint = Radar.Muted, modifier = Modifier.size(18.dp))
+                    }
+                } else {
+                    Spacer(Modifier.width(10.dp))
+                }
+            }
+        },
+    )
+}
 
 /** Grouped surface: the one container style used across the app. */
 @Composable

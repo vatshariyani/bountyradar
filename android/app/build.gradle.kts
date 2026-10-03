@@ -12,8 +12,8 @@ android {
         applicationId = "com.bountyradar.app"
         minSdk = 26          // Android 8.0 — covers ~95% of devices, needed for notif channels
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 5
+        versionName = "0.5"
     }
 
     buildTypes {
