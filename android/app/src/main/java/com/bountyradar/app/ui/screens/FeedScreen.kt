@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +53,11 @@ fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
     val newToday by vm.newTodayCount.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     var showSheet by remember { mutableStateOf(false) }
+
+    // Stable callbacks: new lambda instances per row would defeat card skipping.
+    val openState = rememberUpdatedState(onOpenProgram)
+    val onOpen = remember { { id: String -> openState.value(id) } }
+    val onBookmark = remember(vm) { { id: String -> vm.toggleBookmark(id) } }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -104,12 +110,12 @@ fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
                 }
             }
         } else {
-            items(programs, key = { it.docId }) { program ->
+            items(programs, key = { it.docId }, contentType = { "program" }) { item ->
                 ProgramCard(
-                    program = program,
-                    bookmarked = program.docId in bookmarks,
-                    onClick = { onOpenProgram(program.docId) },
-                    onBookmark = { vm.toggleBookmark(program.docId) },
+                    item = item,
+                    bookmarked = item.docId in bookmarks,
+                    onClick = onOpen,
+                    onBookmark = onBookmark,
                 )
             }
         }

@@ -50,12 +50,12 @@ fun SavedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
         item {
             Text("Saved (${saved.size})", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
         }
-        items(saved, key = { it.docId }) { program ->
+        items(saved, key = { it.docId }, contentType = { "program" }) { item ->
             ProgramCard(
-                program = program,
-                bookmarked = program.docId in bookmarks,
-                onClick = { onOpenProgram(program.docId) },
-                onBookmark = { vm.toggleBookmark(program.docId) },
+                item = item,
+                bookmarked = item.docId in bookmarks,
+                onClick = onOpenProgram,
+                onBookmark = { vm.toggleBookmark(it) },
             )
         }
     }

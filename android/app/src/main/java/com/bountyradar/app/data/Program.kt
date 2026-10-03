@@ -1,6 +1,7 @@
 package com.bountyradar.app.data
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.PropertyName
 import java.time.Duration
 import java.time.Instant
@@ -10,6 +11,7 @@ import java.time.OffsetDateTime
  * Mirrors a document written by the Python poller (see poller/models.py).
  * Field names use @PropertyName because Firestore stores snake_case.
  */
+@IgnoreExtraProperties   // poller-only fields (content_hash, source_meta…) aren't logged per doc
 data class Program(
     // @DocumentId injects the Firestore document id (our unique doc_id hash).
     // Without this, docId is blank for every row and the LazyColumn key collides.
