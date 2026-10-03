@@ -1,6 +1,7 @@
 package com.bountyradar.app.data
 
 import androidx.compose.runtime.Immutable
+import com.bountyradar.app.ui.theme.platformName
 import java.time.Duration
 import kotlin.math.exp
 import kotlin.math.log10
@@ -25,6 +26,18 @@ class ProgramItem(val program: Program) {
     val isWeb3: Boolean = program.isWeb3()
     val scopeCount: Int = program.scope.size
     val nameLower: String = program.name.lowercase()
+
+    /** Reward line for the card: plain hyphens, sentence case, never blank. */
+    val rewardLabel: String = when {
+        !program.bounty -> "No bounty (VDP)"
+        program.rewardRange.isBlank() -> "Paid bounty"
+        else -> program.rewardRange.replace("–", " - ").replace("—", " - ")
+            .replaceFirstChar { it.uppercase() }
+    }
+
+    /** "HackerOne · 19 assets" */
+    val subtitle: String = platformName(platformKey) +
+        if (scopeCount > 0) " · $scopeCount ${if (scopeCount == 1) "asset" else "assets"}" else ""
 
     // ---- scope shape ----
     val wildcardCount: Int

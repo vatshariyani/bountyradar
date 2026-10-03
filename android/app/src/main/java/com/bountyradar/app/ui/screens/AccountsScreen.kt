@@ -2,6 +2,8 @@ package com.bountyradar.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,28 +15,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,111 +34,117 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bountyradar.app.data.AccountProgram
 import com.bountyradar.app.data.AccountReport
 import com.bountyradar.app.ui.RadarViewModel
-import com.bountyradar.app.ui.components.Pill
+import com.bountyradar.app.ui.components.Metric
+import com.bountyradar.app.ui.components.Panel
 import com.bountyradar.app.ui.components.PlatformAvatar
+import com.bountyradar.app.ui.components.PrimaryButton
+import com.bountyradar.app.ui.components.ScreenTopBar
+import com.bountyradar.app.ui.components.SecondaryButton
+import com.bountyradar.app.ui.components.SectionLabel
+import com.bountyradar.app.ui.components.Tag
+import com.bountyradar.app.ui.components.radarFieldColors
+import com.bountyradar.app.ui.theme.GeistMono
+import com.bountyradar.app.ui.theme.Radar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(vm: RadarViewModel, onBack: () -> Unit) {
     val h1 by vm.hackerOne.collectAsStateWithLifecycle()
     val inti by vm.intigriti.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val cs = MaterialTheme.colorScheme
     val open: (String) -> Unit = { url ->
         if (url.isNotBlank()) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     }
 
     LaunchedEffect(Unit) { vm.loadAccounts() }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("My accounts") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-            )
-        },
-    ) { padding ->
+    Column(Modifier.fillMaxSize().imePadding()) {
+        ScreenTopBar("My accounts", onBack)
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(Radar.ScreenPadding, 4.dp, Radar.ScreenPadding, 32.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
                 Text(
-                    "Add your own API token to see private invites, your reports and earnings. " +
-                        "Tokens are encrypted on this phone and only ever sent to the platform that issued them.",
-                    style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                    "Add your own API token to see private invites, reports and earnings. " +
+                        "Tokens are encrypted on this phone and only sent to the platform that issued them.",
+                    style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
+                    modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
 
             // ---------------- HackerOne ----------------
             item {
-                AccountCard("hackerone", "HackerOne", h1.connected, h1.label, h1.loading, h1.error,
-                    onRefresh = vm::refreshHackerOne, onDisconnect = vm::disconnectHackerOne) {
+                AccountPanel(
+                    "hackerone", "HackerOne", h1.connected, h1.label, h1.loading, h1.error,
+                    onRefresh = vm::refreshHackerOne, onDisconnect = vm::disconnectHackerOne,
+                ) {
                     var user by remember { mutableStateOf("") }
                     var token by remember { mutableStateOf("") }
                     Text(
-                        "HackerOne → Settings → API Token. Enter your username and the token.",
-                        style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        "Create a token under HackerOne Settings, API Token.",
+                        style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(user, { user = it }, label = { Text("HackerOne username") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(token, { token = it }, label = { Text("API token") },
-                        singleLine = true, visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(12.dp))
+                    Field(user, { user = it }, "HackerOne username")
                     Spacer(Modifier.height(10.dp))
-                    Button(
-                        onClick = { vm.connectHackerOne(user, token) },
+                    Field(token, { token = it }, "API token", secret = true)
+                    Spacer(Modifier.height(14.dp))
+                    PrimaryButton(
+                        "Connect HackerOne", onClick = { vm.connectHackerOne(user, token) },
                         enabled = user.isNotBlank() && token.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Connect HackerOne") }
+                    )
                 }
             }
             h1.data?.let { d ->
+                val privates = d.programs.filter { it.isPrivate }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Stat(d.balance?.let { "$$it" } ?: "—", "balance", Modifier.weight(1f))
-                        Stat("${d.programs.count { it.isPrivate }}", "private programs", Modifier.weight(1f))
-                        Stat("${d.reports.size}", "recent reports", Modifier.weight(1f))
+                    Panel {
+                        // Balance gets the full width: money strings are long.
+                        Metric(d.balance?.let { "$$it" } ?: "Not available", "Balance", accent = true)
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Metric("${privates.size}", "Private invites", Modifier.weight(1f))
+                            Metric("${d.reports.size}", "Recent reports", Modifier.weight(1f))
+                        }
                     }
                 }
-                items(d.warnings) { w -> Text(w, color = cs.error, style = MaterialTheme.typography.bodySmall) }
-                val privates = d.programs.filter { it.isPrivate }
+                items(d.warnings) { w -> Text(w, color = Radar.Danger, style = MaterialTheme.typography.bodySmall) }
                 if (privates.isNotEmpty()) {
-                    item { SectionTitle("Private invites (${privates.size})") }
+                    item { SectionLabel("Private invites", Modifier.padding(top = 10.dp)) }
                     items(privates, key = { "h1p-" + it.handle }) { p -> ProgramRow(p, open) }
                 }
                 if (d.reports.isNotEmpty()) {
-                    item { SectionTitle("My reports") }
+                    item { SectionLabel("My reports", Modifier.padding(top = 10.dp)) }
                     items(d.reports, key = { "h1r-" + it.url }) { r -> ReportRow(r, open) }
                 }
                 if (d.earnings.isNotEmpty()) {
-                    item { SectionTitle("Earnings") }
+                    item { SectionLabel("Earnings", Modifier.padding(top = 10.dp)) }
                     items(d.earnings.size) { i ->
                         val e = d.earnings[i]
-                        RowCard {
-                            Text("$${e.amount}", fontWeight = FontWeight.Bold, color = cs.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Text(e.program.ifBlank { "—" }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(e.date, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+                        ListRow {
+                            Text(
+                                "$${e.amount}", fontFamily = GeistMono, fontWeight = FontWeight.Medium,
+                                fontSize = 15.sp, color = Radar.Accent,
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                e.program.ifBlank { "Unknown program" }, Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(e.date, style = MaterialTheme.typography.labelSmall, color = Radar.Muted)
                         }
                     }
                 }
@@ -155,35 +152,37 @@ fun AccountsScreen(vm: RadarViewModel, onBack: () -> Unit) {
 
             // ---------------- Intigriti ----------------
             item {
-                AccountCard("intigriti", "Intigriti", inti.connected, inti.label, inti.loading, inti.error,
-                    onRefresh = vm::refreshIntigriti, onDisconnect = vm::disconnectIntigriti) {
+                Spacer(Modifier.height(8.dp))
+                AccountPanel(
+                    "intigriti", "Intigriti", inti.connected, inti.label, inti.loading, inti.error,
+                    onRefresh = vm::refreshIntigriti, onDisconnect = vm::disconnectIntigriti,
+                ) {
                     var token by remember { mutableStateOf("") }
                     Text(
-                        "Intigriti → Profile → Personal access tokens. Paste a researcher API token.",
-                        style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        "Create a researcher token under Intigriti Profile, Personal access tokens.",
+                        style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(token, { token = it }, label = { Text("Personal access token") },
-                        singleLine = true, visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(10.dp))
-                    Button(
-                        onClick = { vm.connectIntigriti(token) },
+                    Spacer(Modifier.height(12.dp))
+                    Field(token, { token = it }, "Personal access token", secret = true)
+                    Spacer(Modifier.height(14.dp))
+                    PrimaryButton(
+                        "Connect Intigriti", onClick = { vm.connectIntigriti(token) },
                         enabled = token.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Connect Intigriti") }
+                    )
                 }
             }
             inti.data?.let { d ->
                 val privates = d.programs.filter { it.isPrivate }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Stat("${d.programs.size}", "programs visible", Modifier.weight(1f))
-                        Stat("${privates.size}", "non-public", Modifier.weight(1f))
+                    Panel {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Metric("${d.programs.size}", "Programs visible", Modifier.weight(1f))
+                            Metric("${privates.size}", "Not public", Modifier.weight(1f), accent = true)
+                        }
                     }
                 }
                 if (privates.isNotEmpty()) {
-                    item { SectionTitle("Invite-only / restricted (${privates.size})") }
+                    item { SectionLabel("Invite-only and restricted", Modifier.padding(top = 10.dp)) }
                     items(privates, key = { "inp-" + it.handle + it.url }) { p -> ProgramRow(p, open) }
                 }
             }
@@ -192,101 +191,93 @@ fun AccountsScreen(vm: RadarViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun AccountCard(
+private fun Field(value: String, onChange: (String) -> Unit, label: String, secret: Boolean = false) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange,
+        label = { Text(label) }, singleLine = true,
+        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        shape = Radar.InnerShape, colors = radarFieldColors(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun AccountPanel(
     platform: String, title: String, connected: Boolean, label: String,
     loading: Boolean, error: String?,
     onRefresh: () -> Unit, onDisconnect: () -> Unit,
     connectForm: @Composable ColumnScope.() -> Unit,
 ) {
-    val cs = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(20.dp), color = cs.surface, tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PlatformAvatar(platform, 40)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (connected) "Connected · $label" else "Not connected",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (connected) cs.primary else cs.onSurfaceVariant,
-                    )
-                }
-                if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+    Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PlatformAvatar(platform, 44)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (connected) "Connected as $label" else "Not connected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (connected) Radar.Accent else Radar.Muted,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
-            error?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, color = cs.error, style = MaterialTheme.typography.bodySmall)
+            if (loading) CircularProgressIndicator(Modifier.size(22.dp), color = Radar.Accent, strokeWidth = 2.dp)
+        }
+        if (error != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(error, color = Radar.Danger, style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(14.dp))
+        if (connected) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton("Refresh", onRefresh, Modifier.weight(1f), enabled = !loading)
+                SecondaryButton("Disconnect", onDisconnect, Modifier.weight(1f), color = Radar.Danger)
             }
-            Spacer(Modifier.height(12.dp))
-            if (connected) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = onRefresh, enabled = !loading) { Text("Refresh") }
-                    TextButton(onClick = onDisconnect) { Text("Disconnect") }
-                }
-            } else {
-                connectForm()
-            }
+        } else {
+            connectForm()
         }
     }
 }
 
 @Composable
-private fun Stat(value: String, label: String, modifier: Modifier = Modifier) {
-    val cs = MaterialTheme.colorScheme
-    Surface(color = cs.surfaceVariant.copy(alpha = 0.6f), shape = RoundedCornerShape(16.dp), modifier = modifier) {
-        Column(Modifier.padding(12.dp)) {
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text.uppercase(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+private fun ListRow(onClick: (() -> Unit)? = null, content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(Radar.InnerShape)
+            .background(Radar.Surface)
+            .border(1.dp, Radar.Line, Radar.InnerShape)
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
     )
 }
 
 @Composable
-private fun RowCard(onClick: (() -> Unit)? = null, content: @Composable RowScope.() -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it },
-    ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { content() }
-    }
-}
-
-@Composable
 private fun ProgramRow(p: AccountProgram, open: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    RowCard(onClick = { open(p.url) }) {
-        Text(p.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.width(8.dp))
-        if (p.bounty) Pill("bounty", cs.primary, filled = true) else Pill("VDP", cs.onSurfaceVariant)
+    ListRow(onClick = { open(p.url) }) {
+        Text(
+            p.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(10.dp))
+        if (p.bounty) Tag("Bounty") else Tag("VDP", Radar.Muted)
     }
 }
 
 @Composable
 private fun ReportRow(r: AccountReport, open: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    RowCard(onClick = { open(r.url) }) {
+    ListRow(onClick = { open(r.url) }) {
         Column(Modifier.weight(1f)) {
-            Text(r.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(r.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 listOf(r.program, r.date).filter { it.isNotBlank() }.joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall, color = Radar.Muted,
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Pill(r.state.ifBlank { "—" }, cs.secondary)
+        Spacer(Modifier.width(10.dp))
+        Tag(r.state.ifBlank { "Unknown" }.replaceFirstChar { it.uppercase() }, Radar.Muted)
     }
 }

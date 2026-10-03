@@ -26,9 +26,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val vm: RadarViewModel = viewModel()
-            val themeMode by vm.themeMode.collectAsStateWithLifecycle()
-
-            BountyRadarTheme(themeMode) {
+            BountyRadarTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val auth by vm.authState.collectAsStateWithLifecycle()
 

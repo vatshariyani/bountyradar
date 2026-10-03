@@ -1,4 +1,9 @@
 <resources>
     <!-- Compose draws the real UI; this base theme just needs Material3 + no action bar. -->
-    <style name="Theme.BountyRadar" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.BountyRadar" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Match the app background so launch never flashes a different colour. -->
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

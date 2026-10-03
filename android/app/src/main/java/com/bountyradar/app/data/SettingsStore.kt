@@ -2,6 +2,7 @@ package com.bountyradar.app.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -21,6 +22,26 @@ class SettingsStore(private val context: Context) {
     private val bookmarksKey = stringSetPreferencesKey("bookmarks")
     private val mutedKey = stringSetPreferencesKey("muted_platforms")
     private fun noteKey(docId: String) = stringPreferencesKey("note_$docId")
+    private val lastVisitKey = longPreferencesKey("last_visit")
+    private val visitBaseKey = longPreferencesKey("visit_base")
+
+    /**
+     * Returns the moment to count "new since your last visit" from, and records
+     * this visit. Re-opening within 30 minutes counts as the same visit.
+     */
+    suspend fun beginVisit(now: Long): Long {
+        var base = 0L
+        context.dataStore.edit { prefs ->
+            val last = prefs[lastVisitKey] ?: 0L
+            base = prefs[visitBaseKey] ?: 0L
+            if (now - last > 30 * 60_000L) {
+                base = if (last == 0L) now - 86_400_000L else last
+                prefs[visitBaseKey] = base
+                prefs[lastVisitKey] = now
+            }
+        }
+        return if (base == 0L) now - 86_400_000L else base
+    }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         runCatching { ThemeMode.valueOf(prefs[themeKey] ?: ThemeMode.SYSTEM.name) }

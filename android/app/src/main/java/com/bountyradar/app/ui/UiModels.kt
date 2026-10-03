@@ -9,8 +9,8 @@ enum class SortBy(val label: String) {
     UPDATED("Recently updated"),
     REWARD_HIGH("Highest reward"),
     SCOPE("Largest scope"),
-    PLATFORM("Platform A–Z"),
-    NAME("Name A–Z"),
+    PLATFORM("Platform A-Z"),
+    NAME("Name A-Z"),
 }
 
 /** "New within" recency window. */

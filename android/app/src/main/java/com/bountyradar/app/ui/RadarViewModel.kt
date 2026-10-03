@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -61,9 +62,14 @@ class RadarViewModel(app: Application) : AndroidViewModel(app) {
     val authState: StateFlow<AuthState> = _authState
 
     // ---- Raw feed (live from Firestore, already parsed off the main thread) ----
+    private val _feedLoaded = MutableStateFlow(false)
+    /** False until the first snapshot arrives, so the feed can show skeletons. */
+    val feedLoaded: StateFlow<Boolean> = _feedLoaded
+
     private val allPrograms: StateFlow<List<ProgramItem>> =
         repo.observePrograms()
             .catch { emit(emptyList()) }
+            .onEach { _feedLoaded.value = true }
             .stateIn(viewModelScope, started, emptyList())
 
     // ---- Feed controls ----
@@ -84,6 +90,16 @@ class RadarViewModel(app: Application) : AndroidViewModel(app) {
 
     val newTodayCount: StateFlow<Int> =
         allPrograms.map { list -> list.count { it.isNew } }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, started, 0)
+
+    // ---- "New since your last visit" ----
+    private val visitBase = MutableStateFlow(System.currentTimeMillis() - 86_400_000L)
+    init {
+        viewModelScope.launch { visitBase.value = settings.beginVisit(System.currentTimeMillis()) }
+    }
+    val newSinceVisit: StateFlow<Int> =
+        combine(allPrograms, visitBase) { list, base -> list.count { it.firstSeenMillis > base } }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, started, 0)
 

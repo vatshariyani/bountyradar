@@ -1,6 +1,12 @@
 package com.bountyradar.app.ui.screens
 
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,17 +21,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,22 +41,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bountyradar.app.ui.RadarViewModel
+import com.bountyradar.app.ui.Recency
+import com.bountyradar.app.ui.RewardFilter
+import com.bountyradar.app.ui.ScopeType
+import com.bountyradar.app.ui.components.EmptyState
 import com.bountyradar.app.ui.components.FilterSortSheet
 import com.bountyradar.app.ui.components.ProgramCard
+import com.bountyradar.app.ui.components.RadarChip
+import com.bountyradar.app.ui.components.RadarLogo
+import com.bountyradar.app.ui.components.SkeletonCard
+import com.bountyradar.app.ui.components.radarFieldColors
+import com.bountyradar.app.ui.theme.GeistMono
+import com.bountyradar.app.ui.theme.Radar
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
     val programs by vm.programs.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val filters by vm.filters.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
     val total by vm.totalCount.collectAsStateWithLifecycle()
-    val newToday by vm.newTodayCount.collectAsStateWithLifecycle()
+    val newSinceVisit by vm.newSinceVisit.collectAsStateWithLifecycle()
+    val platformCount by vm.platformKeys.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
+    val loaded by vm.feedLoaded.collectAsStateWithLifecycle()
     var showSheet by remember { mutableStateOf(false) }
 
     // Stable callbacks: new lambda instances per row would defeat card skipping.
@@ -61,61 +81,110 @@ fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { HeroHeader(total = total, newToday = newToday, shown = programs.size) }
+        item(key = "header", contentType = "header") {
+            FeedHeader(newSinceVisit = newSinceVisit, total = total, platforms = platformCount.size)
+        }
 
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        item(key = "search", contentType = "search") {
+            Row(
+                Modifier.padding(horizontal = Radar.ScreenPadding),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { vm.query.value = it },
-                    placeholder = { Text("Search programs, scope, tags…") },
-                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    placeholder = { Text("Search programs or scope") },
+                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                    trailingIcon = if (query.isNotEmpty()) {
+                        {
+                            Icon(
+                                Icons.Outlined.Close, "Clear search", tint = Radar.Muted,
+                                modifier = Modifier.clip(CircleShape).clickable { vm.query.value = "" }.padding(8.dp),
+                            )
+                        }
+                    } else null,
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = Radar.PillShape,
+                    colors = radarFieldColors(),
+                    textStyle = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(10.dp))
-                BadgedBox(badge = {
-                    if (filters.activeCount > 0) Badge { Text("${filters.activeCount}") }
-                }) {
-                    FilledTonalIconButton(
-                        onClick = { showSheet = true },
-                        modifier = Modifier.size(56.dp),
-                    ) { Icon(Icons.Filled.Tune, contentDescription = "Filter & sort") }
+                FilterButton(filters.activeCount) { showSheet = true }
+            }
+        }
+
+        item(key = "quick", contentType = "quick") {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Radar.ScreenPadding),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                RadarChip("New today", filters.recency == Recency.DAY) {
+                    vm.setRecency(if (filters.recency == Recency.DAY) Recency.ALL else Recency.DAY)
+                }
+                RadarChip("Paid", filters.reward == RewardFilter.PAID) {
+                    vm.setReward(if (filters.reward == RewardFilter.PAID) RewardFilter.ANY else RewardFilter.PAID)
+                }
+                RadarChip("Wildcards", ScopeType.WILDCARD in filters.scopeTypes) { vm.toggleScopeType(ScopeType.WILDCARD) }
+                RadarChip("Updated", filters.updatedOnly) { vm.setUpdatedOnly(!filters.updatedOnly) }
+                RadarChip("Web3", filters.web3Only) { vm.setWeb3Only(!filters.web3Only) }
+            }
+        }
+
+        item(key = "sortline", contentType = "sortline") {
+            Row(
+                Modifier.fillMaxWidth().padding(start = Radar.ScreenPadding, end = 8.dp, top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (loaded) "%,d programs".format(programs.size) else "Loading programs",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall, color = Radar.Muted,
+                )
+                Row(
+                    Modifier
+                        .height(40.dp)
+                        .clip(Radar.PillShape)
+                        .clickable(role = Role.Button) { showSheet = true }
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.SwapVert, null, tint = Radar.Accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(sort.label, style = MaterialTheme.typography.labelMedium, color = Radar.Accent)
                 }
             }
         }
 
-        if (programs.isEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("📡", style = MaterialTheme.typography.displaySmall)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            if (total == 0) "Waiting for programs…" else "No matches for these filters",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            if (total == 0) "Make sure Firestore read rules are set."
-                            else "Try clearing filters or search.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+        when {
+            !loaded -> items(6, key = { "sk$it" }, contentType = { "skeleton" }) {
+                Box(Modifier.padding(horizontal = Radar.ScreenPadding)) { SkeletonCard() }
+            }
+            programs.isEmpty() -> item(key = "empty") {
+                if (total == 0) {
+                    EmptyState(
+                        "No programs yet",
+                        "Nothing has arrived yet. Check your connection; the list fills in as soon as data comes through.",
+                    )
+                } else {
+                    EmptyState(
+                        "Nothing matches",
+                        "No program fits this search and these filters.",
+                        actionLabel = "Clear filters",
+                        onAction = { vm.clearFilters(); vm.query.value = "" },
+                    )
                 }
             }
-        } else {
-            items(programs, key = { it.docId }, contentType = { "program" }) { item ->
+            else -> items(programs, key = { it.docId }, contentType = { "program" }) { item ->
                 ProgramCard(
                     item = item,
                     bookmarked = item.docId in bookmarks,
                     onClick = onOpen,
                     onBookmark = onBookmark,
+                    modifier = Modifier.padding(horizontal = Radar.ScreenPadding).animateItemPlacement(),
                 )
             }
         }
@@ -124,58 +193,62 @@ fun FeedScreen(vm: RadarViewModel, onOpenProgram: (String) -> Unit) {
     if (showSheet) FilterSortSheet(vm) { showSheet = false }
 }
 
+/** The reason to open the app: what is new since you last looked. */
 @Composable
-private fun HeroHeader(total: Int, newToday: Int, shown: Int) {
-    val cs = MaterialTheme.colorScheme
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth(),
-        color = cs.surface,
-    ) {
-        Box(
-            Modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(cs.primary.copy(alpha = 0.22f), cs.tertiary.copy(alpha = 0.18f))
-                    )
-                )
-                .padding(20.dp)
-        ) {
-            Column {
-                Text("BountyRadar", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                Text(
-                    "Catch new targets first.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = cs.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile("$total", "programs", Modifier.weight(1f))
-                    StatTile("$newToday", "new today", Modifier.weight(1f), highlight = true)
-                    StatTile("$shown", "shown", Modifier.weight(1f))
-                }
-            }
+internal fun FeedHeader(newSinceVisit: Int, total: Int, platforms: Int) {
+    val count by animateIntAsState(newSinceVisit, tween(700), label = "newCount")
+    Column(Modifier.padding(start = Radar.ScreenPadding, end = Radar.ScreenPadding, top = 14.dp, bottom = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadarLogo(30.dp, pulse = newSinceVisit > 0)
+            Spacer(Modifier.width(8.dp))
+            Text("Bounty Radar", style = MaterialTheme.typography.titleMedium)
         }
+        Spacer(Modifier.height(22.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "%,d".format(count),
+                fontFamily = GeistMono, fontWeight = FontWeight.Medium, fontSize = 52.sp, lineHeight = 52.sp,
+                color = if (newSinceVisit > 0) Radar.Accent else Radar.Text,
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                if (newSinceVisit == 1) "new program since\nyour last visit" else "new programs since\nyour last visit",
+                style = MaterialTheme.typography.bodyMedium, color = Radar.Text,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Tracking %,d programs across %d platforms".format(total, platforms),
+            style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
+        )
     }
 }
 
 @Composable
-private fun StatTile(value: String, label: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
-    val cs = MaterialTheme.colorScheme
-    Surface(
-        color = if (highlight) cs.primary.copy(alpha = 0.18f) else cs.surfaceVariant.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier,
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                color = if (highlight) cs.primary else cs.onSurface,
+internal fun FilterButton(activeCount: Int, onClick: () -> Unit) {
+    Box(Modifier.size(56.dp)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .background(if (activeCount > 0) Radar.AccentSoft else Radar.Surface)
+                .border(1.dp, if (activeCount > 0) Radar.Accent.copy(alpha = 0.55f) else Radar.Line, CircleShape)
+                .clickable(role = Role.Button, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Tune, "Filter and sort",
+                tint = if (activeCount > 0) Radar.Accent else Radar.Text, modifier = Modifier.size(22.dp),
             )
-            Text(label, style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+        }
+        if (activeCount > 0) {
+            Box(
+                Modifier.align(Alignment.TopEnd).size(20.dp).clip(CircleShape).background(Radar.Accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("$activeCount", color = Radar.OnAccent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

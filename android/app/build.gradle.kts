@@ -12,8 +12,8 @@ android {
         applicationId = "com.bountyradar.app"
         minSdk = 26          // Android 8.0 — covers ~95% of devices, needed for notif channels
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     buildTypes {
@@ -34,6 +34,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     lint { checkReleaseBuilds = false }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all { it.systemProperty("roborazzi.test.record", "true") }
+        }
+    }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
@@ -65,6 +71,14 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
 
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // JVM screenshot tests: render real composables to PNG without a device.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.26.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // Provides the Material3 XML theme (Theme.Material3.*) used by the app's
     // host theme in res/values/themes.xml. Compose's material3 does NOT include it.

@@ -1,120 +1,172 @@
 package com.bountyradar.app.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
-import com.bountyradar.app.ui.ThemeMode
+import com.bountyradar.app.R
 
-// ---- Brand palette --------------------------------------------------------
-private val NeonGreen = Color(0xFF1FE0A0)
-private val NeonGreenDark = Color(0xFF0FB983)
-private val Cyan = Color(0xFF35D0FF)
-private val Violet = Color(0xFF8B7BFF)
-private val Amber = Color(0xFFFFC24B)
+/**
+ * Design tokens. One dark theme, one neutral family (a green-tinted off-black),
+ * ONE accent. Platform hues exist only as small identity marks.
+ */
+object Radar {
+    val Bg = Color(0xFF0A0C0B)
+    val Surface = Color(0xFF111413)
+    val SurfaceHi = Color(0xFF191D1B)
+    val Line = Color(0xFF252A28)
+    val Text = Color(0xFFECEFED)
+    val Muted = Color(0xFF8E9893)
+    val Faint = Color(0xFF5F6964)
+    val Accent = Color(0xFF3DDC97)
+    val AccentSoft = Color(0x243DDC97)   // 14% accent wash for selected states
+    val OnAccent = Color(0xFF04140D)
+    val Warn = Color(0xFFE5B454)
+    val Danger = Color(0xFFEF6F6C)
 
-private val DarkColors = darkColorScheme(
-    primary = NeonGreen,
-    onPrimary = Color(0xFF05130D),
-    primaryContainer = Color(0xFF0E3A2C),
-    onPrimaryContainer = Color(0xFFA8FBDD),
-    secondary = Cyan,
-    onSecondary = Color(0xFF03161D),
-    tertiary = Violet,
-    background = Color(0xFF0A0E13),
-    onBackground = Color(0xFFE6EDF3),
-    surface = Color(0xFF11161E),
-    onSurface = Color(0xFFE6EDF3),
-    surfaceVariant = Color(0xFF1C2530),
-    onSurfaceVariant = Color(0xFF9FB0C0),
-    outline = Color(0xFF2C3946),
-    error = Color(0xFFFF6B6B),
-)
+    // One radius system: containers 20, inner blocks 14, tags 8, controls are pills.
+    val CardShape = RoundedCornerShape(20.dp)
+    val InnerShape = RoundedCornerShape(14.dp)
+    val TagShape = RoundedCornerShape(8.dp)
+    val PillShape = RoundedCornerShape(50)
 
-private val LightColors = lightColorScheme(
-    primary = NeonGreenDark,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFB8F5DF),
-    onPrimaryContainer = Color(0xFF00261A),
-    secondary = Color(0xFF0E8FBF),
-    tertiary = Color(0xFF5B4ED6),
-    background = Color(0xFFF6F8FA),
-    onBackground = Color(0xFF0C1116),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF0C1116),
-    surfaceVariant = Color(0xFFE7ECF1),
-    onSurfaceVariant = Color(0xFF53616E),
-    outline = Color(0xFFCBD5DF),
-    error = Color(0xFFD3454B),
-)
-
-/** Stable accent color per platform for chips, bars and cards. */
-fun platformColor(platform: String): Color = when (platform.removePrefix("fb:")) {
-    "hackerone" -> Color(0xFF3FA9F5)
-    "bugcrowd" -> Color(0xFFFF7A59)
-    "intigriti" -> Color(0xFF6C5CE7)
-    "yeswehack" -> Color(0xFF18C29C)
-    "immunefi" -> Color(0xFFB388FF)
-    "sherlock" -> Color(0xFFFF5DA2)
-    "cantina" -> Color(0xFFFFC24B)
-    "federacy" -> Color(0xFF4DD0E1)
-    "hackenproof" -> Color(0xFF2ED3B7)
-    "standoff365" -> Color(0xFFE5484D)
-    "independent" -> Color(0xFF7CB342)
-    else -> Color(0xFF8C9AA8)
+    val ScreenPadding = 20.dp
 }
 
-val AccentCyan = Cyan
-val AccentViolet = Violet
-val AccentAmber = Amber
+private val Colors = darkColorScheme(
+    primary = Radar.Accent,
+    onPrimary = Radar.OnAccent,
+    primaryContainer = Radar.AccentSoft,
+    onPrimaryContainer = Radar.Accent,
+    secondary = Radar.Text,
+    onSecondary = Radar.Bg,
+    secondaryContainer = Radar.SurfaceHi,
+    onSecondaryContainer = Radar.Text,
+    tertiary = Radar.Warn,
+    onTertiary = Radar.Bg,
+    background = Radar.Bg,
+    onBackground = Radar.Text,
+    surface = Radar.Surface,
+    onSurface = Radar.Text,
+    surfaceVariant = Radar.SurfaceHi,
+    onSurfaceVariant = Radar.Muted,
+    surfaceTint = Radar.Surface,          // no accent-tinted elevation overlays
+    surfaceContainer = Radar.Surface,
+    surfaceContainerLow = Radar.Surface,
+    surfaceContainerHigh = Radar.SurfaceHi,
+    surfaceContainerHighest = Radar.SurfaceHi,
+    outline = Radar.Line,
+    outlineVariant = Radar.Line,
+    error = Radar.Danger,
+    onError = Radar.Bg,
+    scrim = Color(0xCC000000),
+)
+
+@OptIn(ExperimentalTextApi::class)
+private fun geist(res: Int, weight: Int) =
+    Font(res, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+
+val Geist = FontFamily(
+    geist(R.font.geist, 400), geist(R.font.geist, 500), geist(R.font.geist, 600), geist(R.font.geist, 700),
+)
+
+/** Tabular figures for money, counts and scope entries. */
+val GeistMono = FontFamily(
+    geist(R.font.geist_mono, 400), geist(R.font.geist_mono, 500), geist(R.font.geist_mono, 600),
+)
+
+private fun style(size: Int, line: Int, weight: Int, tracking: Double = 0.0) = TextStyle(
+    fontFamily = Geist, fontSize = size.sp, lineHeight = line.sp,
+    fontWeight = FontWeight(weight), letterSpacing = tracking.em,
+)
+
+private val Type = Typography(
+    displayLarge = style(44, 46, 600, -0.035),
+    displayMedium = style(36, 40, 600, -0.03),
+    displaySmall = style(30, 34, 600, -0.03),
+    headlineLarge = style(28, 32, 600, -0.025),
+    headlineMedium = style(24, 30, 600, -0.02),
+    headlineSmall = style(21, 28, 600, -0.02),
+    titleLarge = style(19, 26, 600, -0.015),
+    titleMedium = style(16, 22, 600, -0.01),
+    titleSmall = style(15, 20, 600, -0.005),
+    bodyLarge = style(16, 24, 400),
+    bodyMedium = style(15, 22, 400),
+    bodySmall = style(13, 19, 400),
+    labelLarge = style(15, 20, 600),
+    labelMedium = style(13, 18, 500),
+    labelSmall = style(12, 16, 500, 0.01),
+)
+
+private val AppShapes = Shapes(
+    extraSmall = Radar.TagShape,
+    small = Radar.InnerShape,
+    medium = Radar.InnerShape,
+    large = Radar.CardShape,
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
+/** Stable, restrained identity hue per platform (used for the monogram only). */
+fun platformColor(platform: String): Color = when (platform.removePrefix("fb:")) {
+    "hackerone" -> Color(0xFF8FB4E8)
+    "bugcrowd" -> Color(0xFFE8A07E)
+    "intigriti" -> Color(0xFFA9A2E6)
+    "yeswehack" -> Color(0xFF7FD1BC)
+    "immunefi" -> Color(0xFFC3A8E6)
+    "sherlock" -> Color(0xFFE59AB8)
+    "cantina" -> Color(0xFFE5C37A)
+    "federacy" -> Color(0xFF8CCFD8)
+    "hackenproof" -> Color(0xFF86D6C4)
+    "standoff365" -> Color(0xFFE59A98)
+    "independent" -> Color(0xFFB4CF8A)
+    else -> Radar.Muted
+}
+
+fun platformName(key: String): String = when (key.removePrefix("fb:")) {
+    "hackerone" -> "HackerOne"
+    "bugcrowd" -> "Bugcrowd"
+    "intigriti" -> "Intigriti"
+    "yeswehack" -> "YesWeHack"
+    "immunefi" -> "Immunefi"
+    "sherlock" -> "Sherlock"
+    "cantina" -> "Cantina"
+    "federacy" -> "Federacy"
+    "hackenproof" -> "HackenProof"
+    "standoff365" -> "Standoff 365"
+    "independent" -> "Self-hosted"
+    else -> key.replaceFirstChar { it.uppercase() }
+}
 
 @Composable
-fun BountyRadarTheme(
-    themeMode: ThemeMode,
-    content: @Composable () -> Unit,
-) {
-    val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-    }
-    val context = LocalContext.current
-    val colors = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> DarkColors
-        else -> LightColors
-    }
-
+fun BountyRadarTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
-            val light = colors.background.luminance() > 0.5f
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = light
-                isAppearanceLightNavigationBars = light
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
             }
         }
     }
-
-    MaterialTheme(
-        colorScheme = colors,
-        typography = MaterialTheme.typography,
-        content = content,
-    )
+    MaterialTheme(colorScheme = Colors, typography = Type, shapes = AppShapes, content = content)
 }

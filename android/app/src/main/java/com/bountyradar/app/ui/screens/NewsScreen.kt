@@ -2,10 +2,13 @@ package com.bountyradar.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,9 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,27 +29,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bountyradar.app.data.NewsItem
 import com.bountyradar.app.ui.RadarViewModel
-import com.bountyradar.app.ui.components.Pill
+import com.bountyradar.app.ui.components.EmptyState
+import com.bountyradar.app.ui.components.RadarChip
+import com.bountyradar.app.ui.components.Tag
+import com.bountyradar.app.ui.components.pressScale
+import com.bountyradar.app.ui.theme.Radar
 
 private val KINDS = listOf(
     "all" to "All",
-    "exploited" to "Exploited in the wild",
+    "exploited" to "Exploited",
     "advisory" to "Advisories",
     "research" to "Research",
     "writeup" to "Write-ups",
     "news" to "News",
 )
-private val NewsShape = RoundedCornerShape(18.dp)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewsScreen(vm: RadarViewModel) {
     val items by vm.news.collectAsStateWithLifecycle()
@@ -66,39 +67,30 @@ fun NewsScreen(vm: RadarViewModel) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 96.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            Column {
-                Text("Learn", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+        item(key = "header") {
+            Column(Modifier.padding(start = Radar.ScreenPadding, end = Radar.ScreenPadding, top = 14.dp)) {
+                Text("Learn", style = MaterialTheme.typography.headlineLarge)
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "Fresh vulnerabilities, advisories and research to learn from.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "What is being exploited, disclosed and written up right now.",
+                    style = MaterialTheme.typography.bodyMedium, color = Radar.Muted,
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    KINDS.forEach { (key, label) ->
-                        FilterChip(
-                            selected = kind == key,
-                            onClick = { vm.newsKind.value = key },
-                            label = { Text(label) },
-                        )
-                    }
-                }
+            }
+        }
+        item(key = "kinds") {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Radar.ScreenPadding, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                KINDS.forEach { (key, label) -> RadarChip(label, kind == key) { vm.newsKind.value = key } }
             }
         }
         if (items.isEmpty()) {
-            item {
-                Text(
-                    "Nothing here yet — the feed refreshes hourly.",
-                    Modifier.padding(top = 40.dp).fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            item(key = "empty") {
+                EmptyState("Nothing here yet", "This feed refreshes every hour. Try another category or check back soon.")
             }
         }
         items(items, key = { it.id }, contentType = { "news" }) { n -> NewsCard(n, open) }
@@ -107,60 +99,52 @@ fun NewsScreen(vm: RadarViewModel) {
 
 @Composable
 private fun NewsCard(item: NewsItem, onOpen: (String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    val accent = when {
-        item.kind == "exploited" -> cs.error
-        item.severity == "critical" -> cs.error
-        item.severity == "high" -> Color(0xFFFF9F43)
-        item.kind == "research" -> cs.secondary
-        item.kind == "writeup" -> cs.primary
-        else -> cs.tertiary
-    }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val bg by animateColorAsState(if (pressed) Radar.SurfaceHi else Radar.Surface, label = "newsBg")
+    val severe = item.kind == "exploited" || item.severity == "critical"
+
     Column(
         Modifier
+            .padding(horizontal = Radar.ScreenPadding)
             .fillMaxWidth()
-            .clip(NewsShape)
-            .background(cs.surface)
-            .border(1.dp, cs.outline.copy(alpha = 0.6f), NewsShape)
-            .clickable { onOpen(item.url) }
-            .padding(14.dp)
+            .pressScale(interaction, 0.98f)
+            .clip(Radar.CardShape)
+            .background(bg)
+            .border(1.dp, Radar.Line, Radar.CardShape)
+            .clickable(interaction, indication = null, role = Role.Button) { onOpen(item.url) }
+            .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Tag(
                 when {
-                    item.kind == "exploited" -> "EXPLOITED"
-                    item.severity.isNotBlank() -> item.severity.uppercase()
-                    else -> item.kind.uppercase()
+                    item.kind == "exploited" -> "Exploited"
+                    item.severity.isNotBlank() -> item.severity.replaceFirstChar { it.uppercase() }
+                    else -> KINDS.firstOrNull { it.first == item.kind }?.second ?: "News"
                 },
-                accent, filled = true,
-            )
-            Text(
-                item.source,
-                style = MaterialTheme.typography.labelMedium,
-                color = cs.onSurfaceVariant, fontWeight = FontWeight.SemiBold,
+                color = when {
+                    severe -> Radar.Danger
+                    item.severity == "high" -> Radar.Warn
+                    else -> Radar.Muted
+                },
             )
             Spacer(Modifier.weight(1f))
-            Text(item.date.take(10), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
+            Text(
+                listOf(item.source, item.date.take(10)).filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall, color = Radar.Muted, maxLines = 1,
+            )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
-            item.title,
-            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            item.title, style = MaterialTheme.typography.titleMedium,
             maxLines = 3, overflow = TextOverflow.Ellipsis,
         )
         if (item.summary.isNotBlank()) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
-                item.summary,
-                style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
-                maxLines = 4, overflow = TextOverflow.Ellipsis,
+                item.summary, style = MaterialTheme.typography.bodySmall, color = Radar.Muted,
+                maxLines = 3, overflow = TextOverflow.Ellipsis,
             )
-        }
-        if (item.tags.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                item.tags.take(3).forEach { Pill(it.take(24), cs.onSurfaceVariant) }
-            }
         }
     }
 }
