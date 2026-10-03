@@ -40,3 +40,5 @@ apk_build*.log
 .DS_Store
 Thumbs.db
 .vscode/
+
+.claude/
