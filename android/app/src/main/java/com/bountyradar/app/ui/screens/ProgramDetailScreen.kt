@@ -151,7 +151,8 @@ fun ProgramDetailScreen(vm: RadarViewModel, docId: String, onBack: () -> Unit) {
 
             item { SectionTitle("My notes") }
             item {
-                val saved by vm.note(program.docId).collectAsStateWithLifecycle("")
+                val noteFlow = remember(program.docId) { vm.note(program.docId) }
+                val saved by noteFlow.collectAsStateWithLifecycle("")
                 var draft by remember(saved) { mutableStateOf(saved) }
                 Column {
                     OutlinedTextField(
