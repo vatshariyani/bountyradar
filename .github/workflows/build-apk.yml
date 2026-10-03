@@ -20,8 +20,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub's ubuntu runners ship with the Android SDK (ANDROID_HOME is set),
+      # so no separate SDK setup step is needed; Gradle fetches anything missing.
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Write google-services.json (from secret)
         env:
@@ -34,15 +36,15 @@ jobs:
           echo "$GS" | base64 -d > android/app/google-services.json
           echo "Wrote android/app/google-services.json ($(wc -c < android/app/google-services.json) bytes)"
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
         run: |
-          gradle wrapper --gradle-version 8.9 --no-daemon
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bountyradar-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: bountyradar-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
