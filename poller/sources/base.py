@@ -29,6 +29,9 @@ class Source:
     #: set False to skip without deleting the module (see config.ENABLED_SOURCES)
     enabled: bool = True
 
+    #: True if the last safe_fetch() raised (engine skips pruning that tick)
+    failed: bool = False
+
     def __init__(self, session: requests.Session | None = None):
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", USER_AGENT)
@@ -46,10 +49,12 @@ class Source:
 
     def safe_fetch(self) -> list[Program]:
         """Wrapper used by the engine: never raises, logs and returns []."""
+        self.failed = False
         try:
             items = list(self.fetch())
             log.info("source %s: %d programs", self.name, len(items))
             return items
         except Exception as exc:  # noqa: BLE001 - isolation is intentional
             log.warning("source %s failed: %s", self.name, exc)
+            self.failed = True
             return []

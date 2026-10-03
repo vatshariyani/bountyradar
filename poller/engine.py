@@ -9,11 +9,17 @@ import logging
 import requests
 
 import config
+import news
 from models import Program
 from sources import ALL_SOURCE_CLASSES
 from store import Store, get_store
 
 log = logging.getLogger("bountyradar.engine")
+
+
+# Sources that raised on the latest collect; pruning is skipped while any is down
+# so a flaky platform can never get its programs deleted and re-announced.
+FAILED_SOURCES: list[str] = []
 
 
 def _build_sources():
@@ -31,9 +37,12 @@ def collect_programs() -> dict[str, Program]:
     """Fetch all sources, returning {doc_id: Program}. Later wins on dup ids,
     which is fine — same program from two sources is the same target."""
     programs: dict[str, Program] = {}
+    FAILED_SOURCES.clear()
     for src in _build_sources():
         for prog in src.safe_fetch():
             programs[prog.doc_id] = prog
+        if src.failed:
+            FAILED_SOURCES.append(src.name)
     return programs
 
 
@@ -89,12 +98,19 @@ def run_once(store: Store | None = None) -> dict:
     store.mark_seen(current.keys())
 
     pruned: list[str] = []
-    if config.PRUNE:
+    if config.PRUNE and FAILED_SOURCES:
+        log.warning("skipping prune: source(s) failed this tick: %s", ", ".join(FAILED_SOURCES))
+    elif config.PRUNE:
         pruned = store.prune_stale(config.STALE_DAYS)
         if pruned:
             log.info("pruned %d stale programs (gone > %d days)", len(pruned), config.STALE_DAYS)
 
-    store.flush()  # persist the index in ONE write
+    try:                      # news is best-effort; never let it break a poll
+        news.maybe_refresh(store)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("news refresh failed: %s", exc)
+
+    store.flush()  # persist the index (+ news state) in ONE write
 
     store.notify_new(new_programs)
     store.notify_updated(updated_programs)

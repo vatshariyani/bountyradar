@@ -8,6 +8,9 @@ from sources.hackerone import HackerOne
 from sources.immunefi import Immunefi
 from sources.sherlock import Sherlock
 from sources.cantina import Cantina
+from sources.hackenproof import HackenProof
+from sources.standoff365 import Standoff365
+from sources.independent import Independent
 
 # Order is cosmetic. Each is gated by config.ENABLED_SOURCES at runtime.
 ALL_SOURCE_CLASSES = [
@@ -18,6 +21,10 @@ ALL_SOURCE_CLASSES = [
     Immunefi,
     Sherlock,
     Cantina,
+    HackenProof,
+    # More platforms / self-hosted programs.
+    Standoff365,
+    Independent,
     # Beginner-friendly coordinated disclosure (best-effort feed).
     OpenBugBounty,
     # Phase 3: your private/invited HackerOne programs (needs API token; returns

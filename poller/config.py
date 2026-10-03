@@ -48,6 +48,13 @@ PRUNE_MIN_RATIO = float(os.environ.get("PRUNE_MIN_RATIO", "0.5"))
 # Firestore document that holds the compact {doc_id: hash, last_seen} index, so
 # each poll reads ONE document instead of streaming the whole collection
 # (which blew past the free 50k reads/day quota).
+# --- News feed (one document, refreshed at most every NEWS_INTERVAL_MIN) -------
+NEWS = os.environ.get("NEWS", "1").strip() not in {"0", "false", "no"}
+NEWS_INTERVAL_MIN = int(os.environ.get("NEWS_INTERVAL_MIN", "60"))
+# Lives in the programs collection (readable under the existing security rules).
+# It has no `first_seen` field, so the app's ordered feed query never returns it.
+NEWS_DOC = os.environ.get("NEWS_DOC", "_feed_news")
+
 STATE_COLLECTION = os.environ.get("STATE_COLLECTION", "_state")
 STATE_DOC = os.environ.get("STATE_DOC", "hash_index")
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -27,6 +28,11 @@ import config
 from models import Program
 
 log = logging.getLogger("bountyradar.store")
+
+
+def platform_key(platform: str) -> str:
+    """Topic-safe platform id (FCM topics allow [a-zA-Z0-9-_.~%])."""
+    return re.sub(r"[^a-zA-Z0-9_.~-]", "_", platform.removeprefix("fb:"))
 
 
 def _today() -> str:
@@ -46,6 +52,10 @@ def _age_days(seen: str | None) -> int:
 class Store:
     # index: {doc_id: {"h": content_hash|None, "seen": "YYYY-MM-DD"}}
     index: dict[str, dict]
+    # small key/value state persisted alongside the index (news_at / news_hash)
+    meta: dict[str, str]
+
+    def write_news(self, items: list[dict]) -> None: raise NotImplementedError
 
     def known_hashes(self) -> dict[str, str | None]:
         return {k: v.get("h") for k, v in self.index.items()}
@@ -87,8 +97,12 @@ class LocalStore(Store):
     def __init__(self, path: str = "state/index.json"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.index = json.loads(self.path.read_text(encoding="utf-8")).get("index", {}) \
-            if self.path.exists() else {}
+        data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
+        self.index = data.get("index", {})
+        self.meta = data.get("meta", {})
+
+    def write_news(self, items: list[dict]) -> None:
+        log.info("[local] news doc would hold %d items", len(items))
 
     def save_new(self, programs: list[Program]) -> None:
         for p in programs:
@@ -105,7 +119,8 @@ class LocalStore(Store):
         return ids
 
     def flush(self) -> None:
-        self.path.write_text(json.dumps({"index": self.index}, indent=0), encoding="utf-8")
+        self.path.write_text(json.dumps({"index": self.index, "meta": self.meta}, indent=0),
+                             encoding="utf-8")
 
     def notify_new(self, programs: list[Program]) -> None:
         self._print(programs, "NEW")
@@ -157,16 +172,21 @@ class FirebaseStore(Store):
         version), migrate from the collection once — seeding `seen` from each
         doc's own updated_at/first_seen so genuinely-stale programs get pruned."""
         snap = self.state_ref.get()  # 1 read
+        self.meta = {}
         if snap.exists:
-            raw = (snap.to_dict() or {}).get("json")
+            doc = snap.to_dict() or {}
+            raw = doc.get("json")
             self.index = json.loads(raw) if raw else {}
+            self.meta = {k: doc[k] for k in ("news_at", "news_hash") if doc.get(k)}
             log.info("loaded hash_index: %d entries (1 read)", len(self.index))
             return
         log.warning("no hash_index doc — one-time migration from programs collection")
         self.index = {}
         for doc in self.col.select(["content_hash", "updated_at", "first_seen"]).stream():
+            if doc.id.startswith("_"):       # internal docs (e.g. the news feed)
+                continue
             x = doc.to_dict() or {}
-            seen = (x.get("updated_at") or x.get("first_seen") or "")[:10] or _today()
+            seen =(x.get("updated_at") or x.get("first_seen") or "")[:10] or _today()
             self.index[doc.id] = {"h": x.get("content_hash"), "seen": seen}
         log.info("migrated %d entries into hash_index", len(self.index))
 
@@ -204,38 +224,58 @@ class FirebaseStore(Store):
 
     def flush(self) -> None:
         self.state_ref.set({
-            "json": json.dumps(self.index, separators=(",", ":")),
+            **self.meta,
+            "json":json.dumps(self.index, separators=(",", ":")),
             "count": len(self.index),
             "updated": datetime.now(timezone.utc).isoformat(),
         })
 
+    def write_news(self, items: list[dict]) -> None:
+        self.col.document(config.NEWS_DOC).set({
+            "kind": "news",
+            "json": json.dumps(items, separators=(",", ":"), ensure_ascii=False),
+            "count": len(items),
+            "updated": datetime.now(timezone.utc).isoformat(),
+        })
+
+    # Each alert goes to a per-platform topic so the app can mute platforms.
+    # The legacy topic is OR-ed in, so older app builds keep receiving everything
+    # (a condition message is delivered once per device even if both match).
     def notify_new(self, programs: list[Program]) -> None:
-        if config.NO_NOTIFY or not programs:
-            return
-        if len(programs) > config.MAX_INDIVIDUAL_NOTIFICATIONS:
-            self._send(f"🚨 {len(programs)} new bug bounty programs",
-                       "Open BountyRadar to see them all and pick a target.",
-                       {"type": "batch", "count": str(len(programs))})
-            return
-        for p in programs:
-            self._send(p.notification_title(), p.notification_body(),
-                       {"type": "program", "doc_id": p.doc_id, "platform": p.platform, "url": p.url})
+        self._notify(programs, new=True)
 
     def notify_updated(self, programs: list[Program]) -> None:
+        self._notify(programs, new=False)
+
+    def _notify(self, programs: list[Program], new: bool) -> None:
         if config.NO_NOTIFY or not programs:
             return
-        if len(programs) > config.MAX_INDIVIDUAL_NOTIFICATIONS:
-            self._send(f"🔄 {len(programs)} programs updated",
-                       "Scope or rewards changed — open BountyRadar to review.",
-                       {"type": "batch_update", "count": str(len(programs))})
-            return
+        summarize = len(programs) > config.MAX_INDIVIDUAL_NOTIFICATIONS
+        groups: dict[str, list[Program]] = {}
         for p in programs:
-            self._send(p.update_title(), p.update_body(),
-                       {"type": "update", "doc_id": p.doc_id, "platform": p.platform, "url": p.url})
+            groups.setdefault(platform_key(p.platform), []).append(p)
+        for key, group in groups.items():
+            if summarize:
+                label = key.replace("_", " ").title()
+                if new:
+                    self._send(key, f"🚨 {len(group)} new programs on {label}",
+                               "Open BountyRadar to see them and pick a target.",
+                               {"type": "batch", "platform": key, "count": str(len(group))})
+                else:
+                    self._send(key, f"🔄 {len(group)} programs updated on {label}",
+                               "Scope or rewards changed — open BountyRadar to review.",
+                               {"type": "batch_update", "platform": key, "count": str(len(group))})
+                continue
+            for p in group:
+                self._send(key,
+                           p.notification_title() if new else p.update_title(),
+                           p.notification_body() if new else p.update_body(),
+                           {"type": "program" if new else "update", "doc_id": p.doc_id,
+                            "platform": key, "url": p.url})
 
-    def _send(self, title: str, body: str, data: dict) -> None:
+    def _send(self, key: str, title: str, body: str, data: dict) -> None:
         msg = self._messaging.Message(
-            topic=config.FCM_TOPIC,
+            condition=f"'plat_{key}' in topics || '{config.FCM_TOPIC}' in topics",
             notification=self._messaging.Notification(title=title, body=body),
             data={k: str(v) for k, v in data.items()},
             android=self._messaging.AndroidConfig(priority="high"),
