@@ -1,6 +1,10 @@
 package com.bountyradar.app.ui.screens
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,9 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,12 +43,14 @@ import com.bountyradar.app.ui.RadarViewModel
 import com.bountyradar.app.ui.ThemeMode
 import com.bountyradar.app.ui.components.PlatformAvatar
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: RadarViewModel) {
+fun SettingsScreen(vm: RadarViewModel, onOpenAccounts: () -> Unit) {
     val auth by vm.authState.collectAsStateWithLifecycle()
     val theme by vm.themeMode.collectAsStateWithLifecycle()
     val total by vm.totalCount.collectAsStateWithLifecycle()
+    val platforms by vm.platformKeys.collectAsStateWithLifecycle()
+    val muted by vm.mutedPlatforms.collectAsStateWithLifecycle()
 
     Column(
         Modifier
@@ -88,13 +97,43 @@ fun SettingsScreen(vm: RadarViewModel) {
                 Icon(Icons.Filled.Notifications, null, tint = MaterialTheme.colorScheme.secondary)
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("New-program alerts", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("Alerts per platform", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "On — you're subscribed to instant push for new programs.",
+                        "Tap a platform to mute or unmute its push alerts.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
+            }
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                platforms.forEach { p ->
+                    FilterChip(
+                        selected = p !in muted,
+                        onClick = { vm.toggleMuted(p) },
+                        label = { Text(p.replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        SettingCard {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onOpenAccounts),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Key, null, tint = MaterialTheme.colorScheme.tertiary)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("My accounts", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Connect HackerOne or Intigriti to see private invites, reports and earnings.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
             }
         }
 
@@ -110,7 +149,7 @@ fun SettingsScreen(vm: RadarViewModel) {
 
         Spacer(Modifier.height(16.dp))
         Text(
-            "BountyRadar · v0.2",
+            "BountyRadar · v0.3",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),

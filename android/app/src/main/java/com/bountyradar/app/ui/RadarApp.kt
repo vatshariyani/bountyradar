@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -18,10 +19,12 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -29,7 +32,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bountyradar.app.ui.components.RadarBackground
+import com.bountyradar.app.ui.screens.AccountsScreen
 import com.bountyradar.app.ui.screens.FeedScreen
+import com.bountyradar.app.ui.screens.NewsScreen
 import com.bountyradar.app.ui.screens.PlatformsScreen
 import com.bountyradar.app.ui.screens.ProgramDetailScreen
 import com.bountyradar.app.ui.screens.SavedScreen
@@ -40,6 +45,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private val tabs = listOf(
     Tab("feed", "Feed", Icons.Filled.Radar),
     Tab("platforms", "Platforms", Icons.Filled.GridView),
+    Tab("news", "Learn", Icons.Filled.Newspaper),
     Tab("saved", "Saved", Icons.Filled.Bookmark),
     Tab("settings", "Settings", Icons.Filled.Settings),
 )
@@ -50,6 +56,11 @@ fun RadarApp(vm: RadarViewModel) {
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBar = currentRoute in tabs.map { it.route }
+
+    // Keep push-topic subscriptions in line with the per-platform mute list.
+    val platformKeys by vm.platformKeys.collectAsStateWithLifecycle()
+    val muted by vm.mutedPlatforms.collectAsStateWithLifecycle()
+    LaunchedEffect(platformKeys, muted) { vm.syncAlertTopics(platformKeys, muted) }
 
     RadarBackground {
         Scaffold(
@@ -106,7 +117,9 @@ fun RadarApp(vm: RadarViewModel) {
                 composable("saved") {
                     SavedScreen(vm) { docId -> nav.navigate("detail/$docId") }
                 }
-                composable("settings") { SettingsScreen(vm) }
+                composable("news") { NewsScreen(vm) }
+                composable("settings") { SettingsScreen(vm) { nav.navigate("accounts") } }
+                composable("accounts") { AccountsScreen(vm) { nav.popBackStack() } }
                 composable("detail/{docId}") { entry ->
                     ProgramDetailScreen(
                         vm = vm,

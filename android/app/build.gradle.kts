@@ -12,8 +12,8 @@ android {
         applicationId = "com.bountyradar.app"
         minSdk = 26          // Android 8.0 — covers ~95% of devices, needed for notif channels
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 3
+        versionName = "0.3"
     }
 
     buildTypes {
@@ -72,6 +72,9 @@ dependencies {
 
     // Persist theme choice + bookmarks across launches.
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Encrypted on-device storage for platform API tokens.
+    implementation("androidx.security:security-crypto:1.0.0")
 
     // System bars / edge-to-edge insets helpers.
     implementation("androidx.core:core-splashscreen:1.0.1")

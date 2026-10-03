@@ -48,7 +48,7 @@ data class Program(
         return Duration.between(seen, Instant.now()) <= window
     }
 
-    private fun updatedAtInstant(): Instant? = runCatching {
+    fun updatedAtInstant(): Instant? = runCatching {
         OffsetDateTime.parse(updatedAt).toInstant()
     }.getOrNull()
 

@@ -4,8 +4,6 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.messaging.ktx.messaging
 
 /**
  * App entry. Two jobs at startup:
@@ -18,7 +16,6 @@ class BountyRadarApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
-        Firebase.messaging.subscribeToTopic(TOPIC_NEW_PROGRAMS)
     }
 
     private fun createChannel() {

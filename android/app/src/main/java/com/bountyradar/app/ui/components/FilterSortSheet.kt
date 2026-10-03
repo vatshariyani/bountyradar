@@ -27,12 +27,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bountyradar.app.ui.MIN_REWARD_STEPS
 import com.bountyradar.app.ui.RadarViewModel
 import com.bountyradar.app.ui.Recency
 import com.bountyradar.app.ui.RewardFilter
+import com.bountyradar.app.ui.ScopeType
 import com.bountyradar.app.ui.SortBy
 import com.bountyradar.app.ui.theme.platformColor
 
@@ -43,6 +46,8 @@ fun FilterSortSheet(vm: RadarViewModel, onDismiss: () -> Unit) {
     val filters by vm.filters.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
     val platforms by vm.platformKeys.collectAsStateWithLifecycle()
+    val results by vm.programs.collectAsStateWithLifecycle()
+    val gap = Arrangement.spacedBy(8.dp)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -53,38 +58,47 @@ fun FilterSortSheet(vm: RadarViewModel, onDismiss: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Filters & Sort", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.fillMaxWidth().weight(1f))
+                Spacer(Modifier.weight(1f))
                 if (filters.isActive) {
                     TextButton(onClick = { vm.clearFilters() }) { Text("Clear all") }
                 }
             }
 
             Section("Sort by")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SortBy.entries.forEach { s ->
-                    Chip(s.label, sort == s) { vm.setSort(s) }
-                }
+            FlowRow(horizontalArrangement = gap) {
+                SortBy.entries.forEach { s -> Chip(s.label, sort == s) { vm.setSort(s) } }
+            }
+
+            Section("When first seen")
+            FlowRow(horizontalArrangement = gap) {
+                Recency.entries.forEach { r -> Chip(r.label, filters.recency == r) { vm.setRecency(r) } }
+                Chip("Recently updated", filters.updatedOnly) { vm.setUpdatedOnly(!filters.updatedOnly) }
             }
 
             Section("Reward")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                RewardFilter.entries.forEach { r ->
-                    Chip(r.label, filters.reward == r) { vm.setReward(r) }
+            FlowRow(horizontalArrangement = gap) {
+                RewardFilter.entries.forEach { r -> Chip(r.label, filters.reward == r) { vm.setReward(r) } }
+            }
+
+            Section("Top reward at least")
+            FlowRow(horizontalArrangement = gap) {
+                MIN_REWARD_STEPS.forEach { step ->
+                    Chip(if (step == 0L) "Any" else "%,d+".format(step), filters.minReward == step) {
+                        vm.setMinReward(step)
+                    }
                 }
             }
 
-            Section("When posted")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Recency.entries.forEach { r ->
-                    Chip(r.label, filters.recency == r) { vm.setRecency(r) }
+            Section("In scope")
+            FlowRow(horizontalArrangement = gap) {
+                ScopeType.entries.forEach { t ->
+                    Chip(t.label, t in filters.scopeTypes) { vm.toggleScopeType(t) }
                 }
+                Chip("Web3 / smart contracts", filters.web3Only) { vm.setWeb3Only(!filters.web3Only) }
             }
-
-            Section("Type")
-            Chip("Web3 / smart contracts only", filters.web3Only) { vm.setWeb3Only(!filters.web3Only) }
 
             Section("Platforms (${platforms.size})")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = gap) {
                 platforms.forEach { p ->
                     Chip(
                         label = p.replaceFirstChar { it.uppercase() },
@@ -96,7 +110,7 @@ fun FilterSortSheet(vm: RadarViewModel, onDismiss: () -> Unit) {
 
             Spacer(Modifier.height(20.dp))
             Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text("Show results", fontWeight = FontWeight.Bold)
+                Text("Show ${results.size} programs", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -119,7 +133,7 @@ private fun Section(title: String) {
 private fun Chip(
     label: String,
     selected: Boolean,
-    accent: androidx.compose.ui.graphics.Color? = null,
+    accent: Color? = null,
     onClick: () -> Unit,
 ) {
     FilterChip(

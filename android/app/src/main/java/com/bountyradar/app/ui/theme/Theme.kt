@@ -70,6 +70,9 @@ fun platformColor(platform: String): Color = when (platform.removePrefix("fb:"))
     "sherlock" -> Color(0xFFFF5DA2)
     "cantina" -> Color(0xFFFFC24B)
     "federacy" -> Color(0xFF4DD0E1)
+    "hackenproof" -> Color(0xFF2ED3B7)
+    "standoff365" -> Color(0xFFE5484D)
+    "independent" -> Color(0xFF7CB342)
     else -> Color(0xFF8C9AA8)
 }
 

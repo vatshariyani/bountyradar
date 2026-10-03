@@ -27,13 +27,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,6 +145,23 @@ fun ProgramDetailScreen(vm: RadarViewModel, docId: String, onBack: () -> Unit) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         program.tags.take(6).forEach { Pill(it, cs.secondary) }
+                    }
+                }
+            }
+
+            item { SectionTitle("My notes") }
+            item {
+                val saved by vm.note(program.docId).collectAsStateWithLifecycle("")
+                var draft by remember(saved) { mutableStateOf(saved) }
+                Column {
+                    OutlinedTextField(
+                        value = draft, onValueChange = { draft = it },
+                        placeholder = { Text("Recon ideas, what you tested, leads to revisit…") },
+                        modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 8,
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    if (draft != saved) {
+                        TextButton(onClick = { vm.saveNote(program.docId, draft) }) { Text("Save note") }
                     }
                 }
             }
