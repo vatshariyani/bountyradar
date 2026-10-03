@@ -4,6 +4,14 @@ An Android app that alerts you the moment a **new bug bounty program launches or
 
 One login, one feed, one push notification. It runs entirely on free tiers: no server to rent and no credit card.
 
+<p align="center">
+  <img src="design-system/shots/feed.png" width="250" alt="Feed: new programs since your last visit, search, filters and program cards">
+  <img src="design-system/shots/detail.png" width="250" alt="Program detail: reward range, scope, notes and open program button">
+  <img src="design-system/shots/article.png" width="250" alt="Learn: a pre-CVE advisory with summary, CVSS tags and open in browser button">
+</p>
+
+<p align="center"><sub>Feed · Program detail · Learn (version 0.5)</sub></p>
+
 ## What it does
 
 - **Instant alerts.** A push notification for every new program and for every program whose scope, reward or rules change. Alerts can be muted per platform.
@@ -123,6 +131,10 @@ Environment variables read by the poller:
 ## Tech stack
 
 Python (requests, feedparser, firebase-admin) · Kotlin, Jetpack Compose, Material 3, Navigation, DataStore · Firebase Firestore, Auth and Cloud Messaging · GitHub Actions
+
+## License
+
+[MIT](LICENSE.md)
 
 ## Disclaimer
 
