@@ -1,67 +1,129 @@
 # BountyRadar
 
-Get notified on your Android phone the moment a **new bug bounty program or scope** launches across platforms — so you can flip on your laptop and grab the low-hanging fruit before the crowd arrives.
+An Android app that alerts you the moment a **new bug bounty program launches or an existing one changes scope**, across every major platform, so you can start testing before the crowd arrives.
 
-> Single login (your app account) → one feed of new programs from many platforms → instant push alert → tap to see scope and go.
+One login, one feed, one push notification. It runs entirely on free tiers: no server to rent and no credit card.
 
----
+## What it does
+
+- **Instant alerts.** A push notification for every new program and for every program whose scope, reward or rules change. Alerts can be muted per platform.
+- **One feed for every platform.** About 1,800 programs from 11 platforms, searchable by name or by scope (for example `*.example.com`).
+- **Built for picking targets.** Filter by platform, paid or VDP, minimum reward, wildcard / API / mobile scope, Web3, and recency. Sort by a "best target" score, newest, recently updated, highest reward or scope size.
+- **Program detail.** Reward range, in-scope assets (copyable), wildcard count, first-seen date, private notes, and a button that opens the program page.
+- **Shortlist.** Bookmark programs and keep per-program notes on the device.
+- **Learn tab.** A security feed with an in-app detail view for each entry:
+  - 0-day and pre-CVE: Zero Day Initiative upcoming and unpatched advisories, Full Disclosure, GitHub advisories with no CVE assigned
+  - Actively exploited: CISA Known Exploited Vulnerabilities
+  - New CVEs: high and critical CVEs from the last 48 hours (NVD), oss-security
+  - Disclosed reports: HackerOne Hacktivity
+  - Exploits: Exploit-DB
+  - Research and write-ups: PortSwigger Research, Project Zero, Intigriti, InfoSec Write-ups, The Hacker News
+- **Connected accounts (optional).** Add your own HackerOne or Intigriti API token to see balance, invites and recent reports. Tokens are stored encrypted on the device and never leave it.
+
+## Platforms covered
+
+| Source | Platforms |
+|---|---|
+| [bounty-targets-data](https://github.com/arkadiyt/bounty-targets-data) | HackerOne, Bugcrowd, Intigriti, YesWeHack, Federacy |
+| Direct | Immunefi, Sherlock, Cantina, HackenProof, Standoff 365 |
+| [diodb](https://github.com/disclose/diodb) | Independent, self-hosted paying programs |
 
 ## How it works
 
 ```
-ALWAYS-ON POLLER (Python)                  FIREBASE (free Spark plan)         ANDROID APP (Kotlin)
-  polls every ~10 min                        Firestore  = program database      Login (Firebase Auth)
-   - Firebounty (aggregator)        ──────►  FCM        = push delivery   ────► Push: "New program: X"
-   - YesWeHack API                  writes   Auth       = your one login        Browse / search programs
-   - Open Bug Bounty RSS            new                                          Tap -> scope + link
-   - HackerOne directory            progs    sends push to topic                 (later) track my reports
-   - (phased) Bugcrowd, Intigriti,
-     Immunefi, Web3 contests
-  diffs vs Firestore -> only NEW ones notify
+POLLER (Python, GitHub Actions cron)        FIREBASE (free Spark plan)          ANDROID APP (Kotlin, Compose)
+  every 15 minutes:                           Firestore = program database         Login (Firebase Auth)
+   fetch all sources                 ──────►  FCM       = push delivery     ────►  Push: "New program: X"
+   hash each program                 writes   Auth      = app login                Feed, filters, detail, notes
+   diff against the stored index     only                                          Learn tab
+   write only new / changed ones     changes
+   delete programs that disappeared
+   refresh the news feed hourly
 ```
 
-- **Poller host:** GitHub Actions cron now (free, no credit card, ~10–15 min). Portable to an Oracle Cloud Free Tier VM later for near-real-time (1–2 min) with no code changes.
-- **Push:** Firebase Cloud Messaging — free forever. The app subscribes to an FCM **topic**, so we never have to store device tokens.
-- **Database + login:** Firestore + Firebase Auth on the free Spark plan.
-- **No platform passwords stored.** The public new-program feed needs no platform login. Personal/private programs (Phase 3) use *your own API tokens*, not passwords.
+- **Change detection.** Each program gets a content hash of its name, link, reward, scope and tags. A new hash means a new program or an update, and only those are written and pushed.
+- **Cheap on quota.** All known hashes live in a single Firestore document, so a poll costs one read regardless of how many programs exist. The news feed is also a single document.
+- **Self-cleaning.** Programs not seen on any source for 2 days are deleted. If a source fails or returns less than half of what is known, that poll skips deletion so an outage cannot wipe the database.
+- **No stored device tokens.** The app subscribes to FCM topics (one per platform), so the backend never keeps a list of devices.
+- **No platform passwords.** The public feed needs no platform login.
 
 ## Repository layout
 
 ```
-bugbounty/
-├─ poller/                 # Python backend (the brain)
-│  ├─ sources/             # one module per platform/source
-│  ├─ models.py            # normalized Program object
-│  ├─ store.py             # Firestore + FCM via Firebase Admin SDK
-│  ├─ engine.py            # fetch -> diff -> persist -> notify
-│  ├─ main.py              # entry point (run once per cron tick)
-│  ├─ config.py            # which sources are enabled, tunables
-│  └─ requirements.txt
-├─ android/                # Kotlin app (added in Phase 1 step 2)
-└─ .github/workflows/      # GitHub Actions cron that runs the poller
+poller/                  Python backend
+  sources/               one module per platform or data source
+  engine.py              fetch -> diff -> persist -> prune -> notify
+  store.py               Firestore + FCM (and a local JSON store for dry runs)
+  news.py                security feed for the Learn tab
+  models.py, config.py   normalized program model, tunables
+android/                 Kotlin + Jetpack Compose app
+  app/src/main/...       screens, components, theme, data layer
+  app/src/test/...       JVM screenshot tests (Robolectric + Roborazzi)
+design-system/           HTML reference cards for colors, type and components
+docs/SETUP.md            full setup guide
+.github/workflows/       poll.yml (scheduled poller), build-apk.yml (cloud APK build)
 ```
 
-## Build phases
+## Setup
 
-| Phase | Scope |
-|---|---|
-| **1 — core value** | Poller for easy sources (Firebounty, YesWeHack, Open Bug Bounty, HackerOne directory) → Firestore → FCM → Android app: login, push alerts, searchable program list. |
-| **2 — coverage** | Add scrapers for Bugcrowd, Intigriti, Immunefi, Web3 contests (Code4rena/Sherlock/Cantina). |
-| **3 — personal tracking** | Add *your* API tokens → private/invited programs + track your own reports & payouts across platforms. |
+Full steps are in [docs/SETUP.md](docs/SETUP.md). In short:
 
-## Setup (summary — full steps in `docs/SETUP.md`, added with the app)
+1. Create a Firebase project on the free Spark plan. Enable Firestore, Authentication (email and password) and Cloud Messaging.
+2. Generate a service account key and add its contents as the `FIREBASE_SERVICE_ACCOUNT` Actions secret.
+3. Add your `google-services.json` contents as the `GOOGLE_SERVICES_JSON` Actions secret (for cloud APK builds), or place the file in `android/app/` for local builds.
+4. Set Firestore rules so signed-in users can read and nobody can write from a client:
+   ```
+   allow read: if request.auth != null;
+   allow write: if false;
+   ```
+5. Run the **BountyRadar poll** workflow once with the `seed` input to baseline the database silently, then leave the schedule on.
+6. Build the app and install it.
 
-1. Create a Firebase project (free Spark plan). Enable **Firestore**, **Authentication** (Email + Google), and **Cloud Messaging**.
-2. Generate a **service account key** (JSON) — used by the poller to write Firestore + send FCM.
-3. Put the poller secrets into GitHub repo **Actions secrets** (`FIREBASE_SERVICE_ACCOUNT`, optional platform tokens).
-4. Enable the GitHub Actions workflow — it runs the poller on a schedule.
-5. Build the Android app in `android/`, drop in your `google-services.json`, install on your phone, log in. Done.
+### Run the poller locally
 
-## Status
+```bash
+cd poller
+pip install -r requirements.txt
+DRY_RUN=1 python main.py
+```
 
-- [x] Architecture decided
-- [ ] Phase 1 poller (in progress)
-- [ ] GitHub Actions deploy
-- [ ] Android app
-- [ ] Phase 2 scrapers
-- [ ] Phase 3 personal tracking
+`DRY_RUN=1` uses a local JSON store and prints alerts to the console, so no Firebase project is needed.
+
+### Build the app
+
+```bash
+cd android
+./gradlew :app:assembleRelease
+```
+
+The APK is written to `android/app/build/outputs/apk/release/`. Every push to `main` also builds one in GitHub Actions (Actions → Build APK → Artifacts).
+
+### UI tests
+
+```bash
+cd android
+./gradlew :app:testDebugUnitTest
+```
+
+Renders the main screens to PNG on the JVM (no device needed) into `android/app/build/outputs/roborazzi/`.
+
+## Configuration
+
+Environment variables read by the poller:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ENABLED_SOURCES` | all | Comma-separated list of sources to poll |
+| `SEED_MODE` | off | Store everything without sending alerts (first run, or after adding a source) |
+| `NO_NOTIFY` | off | Write changes but send no push |
+| `STALE_DAYS` | 2 | Days a program may be missing from every source before it is deleted |
+| `PRUNE_MIN_RATIO` | 0.5 | Skip writes and deletion if a poll returns less than this share of known programs |
+| `NEWS_INTERVAL_MIN` | 60 | Minimum minutes between news refreshes |
+
+## Tech stack
+
+Python (requests, feedparser, firebase-admin) · Kotlin, Jetpack Compose, Material 3, Navigation, DataStore · Firebase Firestore, Auth and Cloud Messaging · GitHub Actions
+
+## Disclaimer
+
+Only test assets that a program explicitly lists as in scope, and follow each program's rules. Program data comes from public sources and may be incomplete or out of date; always confirm scope on the program's own page before testing.
