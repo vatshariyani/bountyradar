@@ -42,50 +42,70 @@ def run_once(store: Store | None = None) -> dict:
     current = collect_programs()
     log.info("collected %d unique programs", len(current))
 
-    seeding = config.SEED_MODE or store.is_empty
-    if seeding:
+    if config.SEED_MODE or store.is_empty:
         # Establish baseline WITHOUT notifying (avoids first-run alert storm).
-        store.save_new(list(current.values()))
+        progs = list(current.values())
+        store.save_new(progs)
+        store.mark_seen(current.keys())
+        store.flush()
         log.info("SEED: baselined %d programs, no notifications sent", len(current))
-        return {"collected": len(current), "new": 0, "updated": 0, "seeded": True}
+        return {"collected": len(current), "new": 0, "updated": 0, "pruned": 0, "seeded": True}
 
-    known = store.known_hashes()  # {doc_id: content_hash or None}
+    known = store.known_hashes()  # {doc_id: content_hash or None} — from the index (1 read)
+
+    # Outage guard: a big drop almost always means a source failed, not that
+    # hundreds of programs closed at once. Skip ALL writes + prune so a transient
+    # failure can never wipe the database.
+    if known and len(current) < config.PRUNE_MIN_RATIO * len(known):
+        log.warning("only %d programs vs %d known (<%.0f%%) — suspected source "
+                    "outage; skipping writes/prune this tick",
+                    len(current), len(known), config.PRUNE_MIN_RATIO * 100)
+        return {"collected": len(current), "known": len(known), "aborted": "source-outage"}
+
     new_programs, updated_programs, backfill = [], [], []
     for doc_id, p in current.items():
         if doc_id not in known:
             new_programs.append(p)
         else:
-            old_hash = known[doc_id]
-            if old_hash is None:
-                backfill.append(p)          # legacy doc without a hash yet
-            elif old_hash != p.content_hash:
-                updated_programs.append(p)   # genuine change -> notify
-
-    if backfill:
-        # Silently stamp hashes on pre-hash documents so they don't all look
-        # "updated" on the first run after this feature ships.
-        store.backfill_hashes(backfill)
-        log.info("backfilled content_hash on %d legacy programs", len(backfill))
+            old = known[doc_id]
+            if old is None:
+                backfill.append(p)            # legacy index entry without a hash
+            elif old != p.content_hash:
+                updated_programs.append(p)    # genuine change -> notify
 
     if new_programs:
         store.save_new(new_programs)
-        store.notify_new(new_programs)
         for p in new_programs:
             log.info("NEW     %-14s %s", p.platform, p.name)
-
     if updated_programs:
         store.save_updated(updated_programs)
-        store.notify_updated(updated_programs)
         for p in updated_programs:
             log.info("UPDATED %-14s %s", p.platform, p.name)
+    if backfill:
+        store.set_hashes(backfill)            # silent: index-only, no doc write
+        log.info("stamped hashes on %d legacy entries", len(backfill))
 
-    if not new_programs and not updated_programs:
-        log.info("no new or updated programs this tick")
+    # Everything present this tick is "seen today" -> protected from pruning.
+    store.mark_seen(current.keys())
+
+    pruned: list[str] = []
+    if config.PRUNE:
+        pruned = store.prune_stale(config.STALE_DAYS)
+        if pruned:
+            log.info("pruned %d stale programs (gone > %d days)", len(pruned), config.STALE_DAYS)
+
+    store.flush()  # persist the index in ONE write
+
+    store.notify_new(new_programs)
+    store.notify_updated(updated_programs)
+
+    if not new_programs and not updated_programs and not pruned:
+        log.info("no changes this tick")
 
     return {
         "collected": len(current),
         "new": len(new_programs),
         "updated": len(updated_programs),
-        "backfilled": len(backfill),
+        "pruned": len(pruned),
         "seeded": False,
     }

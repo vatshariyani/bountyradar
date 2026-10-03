@@ -2,18 +2,27 @@ name: BountyRadar poll
 
 on:
   schedule:
-    # Every 10 minutes. GitHub may delay under load (~10–15 min real cadence).
-    - cron: "*/10 * * * *"
-  workflow_dispatch:        # manual "Run workflow" button
+    # Every 15 min (the upstream aggregator refreshes ~every 30 min, so faster
+    # buys little). Reads are O(1) now — one index doc per poll — so this stays
+    # far under Firebase's free 50k reads/day quota.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
     inputs:
       seed:
-        description: "Seed baseline without notifying (first run)"
+        description: "Seed baseline without notifying (first run only)"
+        type: boolean
+        default: false
+      resync:
+        description: "Silent catch-up: write + prune, but send NO notifications"
         type: boolean
         default: false
 
 concurrency:
   group: bountyradar-poll
-  cancel-in-progress: false   # let an in-flight poll finish
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # needed only for the keepalive heartbeat commit
 
 jobs:
   poll:
@@ -34,9 +43,28 @@ jobs:
         working-directory: poller
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          # Optional platform tokens (Phase 3) — safe to leave unset:
           H1_API_USERNAME: ${{ secrets.H1_API_USERNAME }}
           H1_API_TOKEN: ${{ secrets.H1_API_TOKEN }}
-          # Flip on for the very first manual run to baseline silently:
           SEED_MODE: ${{ inputs.seed && '1' || '' }}
+          NO_NOTIFY: ${{ inputs.resync && '1' || '' }}
         run: python main.py
+
+      # GitHub disables scheduled workflows after 60 days of repo inactivity —
+      # that's what silently killed the poller in August. A tiny heartbeat commit
+      # (at most ~weekly) keeps the repo "active" so this never happens again.
+      - name: Keepalive heartbeat
+        if: always()
+        continue-on-error: true
+        run: |
+          hb=.github/heartbeat.txt
+          last=$(git log -1 --format=%ct -- "$hb" 2>/dev/null || echo 0)
+          now=$(date +%s)
+          if [ $((now - last)) -gt 518400 ]; then   # older than 6 days
+            date -u +%FT%TZ > "$hb"
+            git config user.name "bountyradar-bot"
+            git config user.email "bountyradar-bot@users.noreply.github.com"
+            git add "$hb"
+            git commit -m "chore: keepalive heartbeat [skip ci]" && git push origin HEAD:main || true
+          else
+            echo "heartbeat fresh (<6 days) — skipping"
+          fi
